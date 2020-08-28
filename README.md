@@ -10,10 +10,8 @@ Here’s how to get macOS Big Sur-like dynamic wallpaper on your Gnome desktop.
 
 # Material required:
 
-> 1. ~~A Linux system with Gnome GUI.~~
-> 1. Ubuntu 20.04 Desktop
+> 1. Ubuntu 20.04 Desktop.
 > 2. Internet connection.
-> 3. Familiarity with the Linux distro.
 
 # Installation for Ubuntu 20.04
 ### 1. Clone the resource
@@ -55,6 +53,12 @@ If you are not in the `~/Pictures`, you should change the file path in `focal.xm
 ```
 
 # Installation for other Linux Gnome desktop (Untested)
+
+### Material required:
+
+> 1. A Linux system with Gnome GUI.
+> 2. Internet connection.
+> 3. Familiarity with the Linux distro.
 
 1. Open up the terminal.
 3. Then run `sudo apt-get update`.
