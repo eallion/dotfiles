@@ -23,7 +23,9 @@ git clone https://github.com/eallion/Big-Sur-Ubuntu.git
 ```
 
 ### 2. Setting
-- Setting with gnome tweaks:
+> Two ways, change one.
+
+- 2.1 Setting with gnome tweaks:
 
 ```
 gnome-tweaks
@@ -31,7 +33,7 @@ gnome-tweaks
 Go to the `Appearance` section and under `Backgrounds`, select the XML file.  
 Also set the Adjustment to `ZOOM`.
 
-- Setting in system settings:
+- 2.2 Setting in system settings:
 
 ```
 cd ~/Pictures/Big-Sur-Ubuntu/
