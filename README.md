@@ -19,10 +19,19 @@ cd ~/Pictures
 git clone https://github.com/eallion/Big-Sur-Ubuntu.git
 ```
 
-### 2. Setting
+### 2. Change the file path
+My username is `eallion`, you must change `eallion` to your username in file`focal.xml`.
+If you are`alex`, you can change it in the terminal:
+```
+cd Big-Sur-Ubuntu
+sed -i "s/eallion/alex/g" focal.xml
+```
+or change it in a text editer.
+
+### 3. Setting
 > Two ways, change one.
 
-- 2.1 Setting with gnome tweaks:
+- 3.1 Setting with gnome tweaks:
 
 ```
 gnome-tweaks
@@ -30,7 +39,7 @@ gnome-tweaks
 Go to the `Appearance` section and under `Backgrounds`, select the XML file.  
 Also set the Adjustment to `ZOOM`.
 
-- 2.2 Setting in system settings:
+- 3.2 Setting in system settings:
 
 ```
 cd ~/Pictures/Big-Sur-Ubuntu/
@@ -40,15 +49,15 @@ sudo cp focal.xml /usr/share/backgrounds/contest/focal.xml
 Open the system settings, go to the `Backgrouds` section.  
 Choose the picture with a clock icon.
 
-### 3. Reboot
+### 4. Reboot
 ```
 reboot
 ```
 
-### 4. Notice
+### 5. Notice
 If you are not in the `~/Pictures`, you should change the file path in `focal.xml`:
 ```
-<file>~/Pictures/Big-Sur-Ubuntu/Night.jpg</file>
+<file>/home/eallion/Pictures/Big-Sur-Ubuntu/Night.jpg</file>
 ```
 
 # Installation for other Linux Gnome desktop (Untested)
