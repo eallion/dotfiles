@@ -27,6 +27,9 @@ cd Big-Sur-Ubuntu
 sed -i "s/eallion/alex/g" focal.xml
 ```
 or change it in a text editer.
+```
+<file>/home/eallion/Pictures/Big-Sur-Ubuntu/Night.jpg</file>
+```
 
 ### 3. Setting
 > Two ways, change one.
