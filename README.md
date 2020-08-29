@@ -58,7 +58,7 @@ reboot
 ```
 
 ### 5. Notice
-If you are not in the `~/Pictures`, you should change the file path in `focal.xml`:
+You should change the file path in `focal.xml`:
 ```
 <file>/home/eallion/Pictures/Big-Sur-Ubuntu/Night.jpg</file>
 ```
