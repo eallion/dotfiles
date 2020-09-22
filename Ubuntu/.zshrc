@@ -100,3 +100,6 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+alias ls "ls -aFGg"
+alias sl "ls -aFGg"
+alias dir "ls -l"
