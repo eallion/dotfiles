@@ -1,0 +1,10 @@
+[user]
+	name = Charles Chin
+	email = eallions@gmail.com
+	signingkey = 41901D195A30A57F3F116FB4D345C222BF2898BE
+[credential]
+	helper = store
+[core]
+	quotepath = false
+[commit]
+	gpgsign = true
