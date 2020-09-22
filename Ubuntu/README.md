@@ -1,13 +1,3 @@
----
-title: "Ubuntu 20.04 优化"
-categories: ["代码"]
-tags: ["Ubuntu","优化","美化","ZFS","gnome"]
-draft: false
-slug: "ubuntu2004"
-date: "2020-05-25 12:36:00"
-toc: true
----
-
 ![Ubuntu 20.04](https://images.eallion.com/images/2020/09/ubuntu-2004.png)
 > 实机安装 桌面效果截图 [（查看大图）](https://images.eallion.com/images/2020/09/ubuntu-2004.png "（查看大图）")
 
