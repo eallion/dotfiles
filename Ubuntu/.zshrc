@@ -2,6 +2,7 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
+export TERM="xterm-256color"
 export ZSH="/home/eallion/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
@@ -100,6 +101,5 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-alias ls "ls -aFGg"
 alias sl "ls -aFGg"
 alias dir "ls -l"
