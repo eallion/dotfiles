@@ -1,7 +1,7 @@
 [user]
   name = Charles Chin
   email = eallions@gmail.com
-  signingkey = 41901D195A30A57F3F116FB4D345C222BF2898BE
+  signingkey = C8DF66EB582F0A6479321448E9D37D624F12CB4A
 
 [credential]
   helper = store
@@ -9,7 +9,6 @@
 [core]
   quotepath = false
   editor = vim
-  pager = diff-so-fancy | less --tabs=4 -RFX
   whitespace = space-before-tab,-indent-with-non-tab,trailing-space
   untrackedCache = true
   precomposeunicode = false
