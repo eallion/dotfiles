@@ -12,6 +12,8 @@ export ZSH="/home/eallion/.oh-my-zsh"
 # ZSH_THEME="robbyrussell"
 POWERLEVEL9K_MODE='nerdfont-complete'
 ZSH_THEME="powerlevel9k/powerlevel9k"
+POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(context dir dir_writable disk_usage vcs newline)
+POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status root_indicator background_jobs history time)
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -101,5 +103,9 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-alias sl "ls -aFGg"
-alias dir "ls -l"
+alias ls="ls --color=auto"
+alias sl="ls --color=auto"
+alias dir="ls -aFGg --color=tty"
+alias c="clear"
+alias e="cd ~"
+alias ea="cd ~"
