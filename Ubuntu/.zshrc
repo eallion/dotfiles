@@ -74,7 +74,7 @@ COMPLETION_WAITING_DOTS="true"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 # plugins=(git)
-plugins=( git extract fasd zsh-autosuggestions zsh-syntax-highlighting docker docker-compose)
+plugins=( git extract fasd zsh-autosuggestions zsh-syntax-highlighting docker docker-compose cp history tmux web-search sudo)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -104,10 +104,11 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-alias ls="ls --color=auto"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvmalias ls="ls --color=auto"
 alias sl="ls --color=auto"
 alias dir="ls -aFGg --color=tty"
 alias c="clear"
 alias e="cd ~"
 alias ea="cd ~"
+alias dl="cd ~/Downloads"
+alias doc="cd ~/Documents"
