@@ -1,0 +1,3 @@
+[submodule "Ubuntu/PhotoGIMP"]
+	path = Ubuntu/PhotoGIMP
+	url = https://github.com/Diolinux/PhotoGIMP.git
