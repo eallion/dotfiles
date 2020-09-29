@@ -5,6 +5,22 @@
 
 
 # -- navigation ----------------------------------------------------------------
+# git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm , use prefix + I install plugins
+# # List of plugins
+# set -g @plugin 'tmux-plugins/tpm'
+#
+# # plugins
+# # prefix + Ctrl-s - save;  prefix + Ctrl-r - restore.  https://github.com/tmux-plugins/tmux-resurrect
+# set -g @plugin 'tmux-plugins/tmux-resurrect'
+# set -g @plugin 'tmux-plugins/tmux-continuum'
+# # restore vim/neovim session
+# set -g @resurrect-strategy-vim 'session'
+# set -g @resurrect-strategy-nvim 'session'
+# set -g @continuum-restore 'on'
+# set -g @resurrect-capture-pane-contents 'on'
+#
+# # Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
+# run '~/.tmux/plugins/tpm/tpm'
 
 # if you're running tmux within iTerm2
 #   - and tmux is 1.9 or 1.9a
