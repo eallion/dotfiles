@@ -10,3 +10,6 @@
 [submodule "Openwrt/openwrt"]
 	path = Openwrt/openwrt
 	url = https://github.com/eallion/openwrt
+[submodule "Debian/.tmux"]
+	path = Debian/.tmux
+	url = https://github.com/gpakosz/.tmux.git
