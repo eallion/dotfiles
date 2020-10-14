@@ -1,0 +1,8 @@
+deb http://mirrors.tuna.tsinghua.edu.cn/debian/ sid main contrib non-free
+deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ sid main contrib non-free
+deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+# deb-src [arch=amd64] https://download.docker.com/linux/debian buster stable
+deb https://typora.io/linux ./
+# deb-src https://typora.io/linux ./
+deb https://cli.github.com/packages buster main
+# deb-src https://cli.github.com/packages sid main
