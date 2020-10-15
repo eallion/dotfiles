@@ -38,12 +38,6 @@
         "list":
         [
             {
-                "guid": "{7a75acc2-9688-47e8-a33c-e0edab10f583}",
-                "name": "bg_procs",
-                "colorScheme": "Dracula",
-                "commandline": "wt -p \"命令提示符\" ; new-tab -p \"PowerShell\""
-              },
-            {
                 // Make changes here to the cmd.exe profile.
                 // GUID generator: https://www.guidgenerator.com/online-guid-generator.aspx
                 "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
@@ -130,6 +124,13 @@
                 "hidden": true,
                 "name": "Azure Cloud Shell",
                 "source": "Windows.Terminal.Azure"
+            },
+            {
+                "guid": "{7a75acc2-9688-47e8-a33c-e0edab10f583}",
+                "name": "About Windows Ternimal",
+                "colorScheme": "Dracula",
+                "commandline": "wt -p \"命令提示符\" ; new-tab -p \"PowerShell\" ; focus-tab -t 0",
+                "hidden": false
             }
         ]
     },
