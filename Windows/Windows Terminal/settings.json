@@ -8,7 +8,7 @@
 {
     "$schema": "https://aka.ms/terminal-profiles-schema",
 
-    "defaultProfile": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+    "defaultProfile": "{7a75acc2-9688-47e8-a33c-e0edab10f583}",
     "alwaysShowTabs": true, //始终显示标签
     "initialCols": 131, //默认列数
     "initialRows": 31, //默认行数
@@ -38,6 +38,12 @@
         "list":
         [
             {
+                "guid": "{7a75acc2-9688-47e8-a33c-e0edab10f583}",
+                "name": "bg_procs",
+                "colorScheme": "Dracula",
+                "commandline": "wt -p \"命令提示符\" ; new-tab -p \"PowerShell\""
+              },
+            {
                 // Make changes here to the cmd.exe profile.
                 // GUID generator: https://www.guidgenerator.com/online-guid-generator.aspx
                 "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
@@ -56,16 +62,18 @@
                 "padding": "5, 5, 5, 5",
                 "snapOnInput": true,//嗅探输入
                 "startingDirectory": "%Workspaces%"//初始目录
-            },            {
-                "guid": "{030a7740-3766-42a6-a0d9-f86d6549154c}",
-                "closeOnExit" : "always",
-                "commandline" : "\"%PROGRAMFILES%\\git\\usr\\bin\\bash.exe\" -i -l",
-                "name" : "Git Bash",
-                "startingDirectory" : "%USERPROFILE%",
-                "background": "#012456",
-                "acrylicOpacity": 0.8,
-                "useAcrylic": true,
-                "icon": "ms-appdata:///roaming/icons/git-for-windows.ico"
+            },
+            {
+                // Make changes here to the powershell.exe profile.
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "name": "PowerShell",
+                "commandline": "powershell.exe",
+                "fontFace": "Knack Nerd Font Mono",
+                "fontSize": 11,
+                "historySize": 9001,//历史大小
+                "padding": "5, 5, 5, 5",
+                "snapOnInput": true,//嗅探输入
+                "hidden": false
             },
             {
                 "guid": "{2c4de342-38b7-51cf-b940-2309a097f518}",
@@ -107,65 +115,15 @@
                 "icon": "ms-appdata:///roaming/icons/debian.ico"
             },
             {
-                "guid": "{0c65c6ea-b0b1-47c3-a0f9-e35b96826a6a}",
-                "name": "Openwrt",
-                "commandline": "ssh root@host -p 22",
-                "colorScheme":"UbuntuLegit",
-                "useAcrylic": false,//使用不透明度
-                "acrylicOpacity": 0.95,//不透明度
-                "closeOnExit": true,//退出后关闭
-                "cursorColor": "#FFFFFF",//光标颜色
-                "cursorShape": "bar", // 光标类型 cursorShape，可选值 "vintage" ( ▃ ), "bar" ( ┃ ), "underscore" ( ▁ ), "filledBox" ( █ ), "emptyBox" ( ▯ )
-                "fontFace": "Source Code Pro",//字体Hack
-                "fontSize": 11,
-                "historySize": 9001,//历史大小
-                "padding": "5, 5, 5, 5",
-                "snapOnInput": true,//嗅探输入
-                // "startingDirectory": "%Workspaces%",//初始目录
-                "icon": "ms-appdata:///roaming/icons/openwrt.ico"
-            },
-            {
-                "guid": "{413EB34F-69AD-02AB-3E42-2A4134BC84AB}",
-                "name": "Aliyun HK",
-                "commandline": "ssh root@host -p 22",
-                "colorScheme":"UbuntuLegit",
-                "useAcrylic": false,//使用不透明度
-                "acrylicOpacity": 0.95,//不透明度
-                "closeOnExit": true,//退出后关闭
-                "cursorColor": "#FFFFFF",//光标颜色
-                "cursorShape": "bar", // 光标类型 cursorShape，可选值 "vintage" ( ▃ ), "bar" ( ┃ ), "underscore" ( ▁ ), "filledBox" ( █ ), "emptyBox" ( ▯ )
-                "fontFace": "Source Code Pro",//字体Hack
-                "fontSize": 11,
-                "historySize": 9001,//历史大小
-                "padding": "5, 5, 5, 5",
-                "snapOnInput": true,//嗅探输入
-                // "startingDirectory": "%Workspaces%",//初始目录
-                "icon": "ms-appdata:///roaming/icons/aliyun.ico"
-            },
-            {
-                "guid": "{3DB6E5CB-C059-C8BE-6F0D-9318EF8DAB17}",
-                "name": "BWH DC6",
-                "commandline": "ssh root@host -p 22",
-                "colorScheme":"UbuntuLegit",
-                "useAcrylic": false,//使用不透明度
-                "acrylicOpacity": 0.95,//不透明度
-                "closeOnExit": true,//退出后关闭
-                "cursorColor": "#FFFFFF",//光标颜色
-                "cursorShape": "bar", // 光标类型 cursorShape，可选值 "vintage" ( ▃ ), "bar" ( ┃ ), "underscore" ( ▁ ), "filledBox" ( █ ), "emptyBox" ( ▯ )
-                "fontFace": "Source Code Pro",//字体Hack
-                "fontSize": 11,
-                "historySize": 9001,//历史大小
-                "padding": "5, 5, 5, 5",
-                "snapOnInput": true,//嗅探输入
-                // "startingDirectory": "%Workspaces%",//初始目录
-                "icon": "ms-appdata:///roaming/icons/bandwagon.ico"
-            },
-            {
-                // Make changes here to the powershell.exe profile.
-                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
-                "name": "Windows PowerShell",
-                "commandline": "powershell.exe",
-                "hidden": false
+                "guid": "{030a7740-3766-42a6-a0d9-f86d6549154c}",
+                "closeOnExit" : "always",
+                "commandline" : "\"%PROGRAMFILES%\\git\\usr\\bin\\bash.exe\" -i -l",
+                "name" : "Git Bash",
+                "startingDirectory" : "%USERPROFILE%",
+                "background": "#012456",
+                "acrylicOpacity": 0.8,
+                "useAcrylic": true,
+                "icon": "ms-appdata:///roaming/icons/git-for-windows.ico"
             },
             {
                 "guid": "{b453ae62-4e3d-5e58-b989-0a998ec441b8}",
