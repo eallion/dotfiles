@@ -130,7 +130,8 @@
                 "name": "About Windows Ternimal",
                 "colorScheme": "Dracula",
                 "commandline": "wt -p \"命令提示符\" ; new-tab -p \"PowerShell\" ; focus-tab -t 0",
-                "hidden": false
+                "hidden": false,
+                "icon": "ms-appdata:///roaming/icons/windowsterminal.ico"
             }
         ]
     },
