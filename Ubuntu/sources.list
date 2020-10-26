@@ -19,8 +19,12 @@ deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main
 deb http://prerelease.keybase.io/deb stable main
 # qBittorrent Enhanced
 deb http://ppa.launchpad.net/poplite/qbittorrent-enhanced/ubuntu/ groovy main
+# Slack
+deb https://packagecloud.io/slacktechnologies/slack/debian/ jessie main
 # Spotify
 deb http://repository.spotify.com stable non-free
+# Termius
+deb [arch=amd64] https://deb.termius.com squeeze main
 # Typora
 deb https://typora.io/linux ./
 # VS Code
