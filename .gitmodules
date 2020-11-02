@@ -1,12 +1,20 @@
 [submodule "Ubuntu/PhotoGIMP"]
 	path = Ubuntu/PhotoGIMP
 	url = https://github.com/Diolinux/PhotoGIMP.git
+	branch = master
 [submodule "Ubuntu/Pictures/Big-Sur-Ubuntu"]
 	path = Ubuntu/Pictures/Big-Sur-Ubuntu
 	url = https://github.com/eallion/Big-Sur-Ubuntu.git
+	branch = master
 [submodule "Ubuntu/.tmux"]
 	path = Ubuntu/.tmux
 	url = https://github.com/gpakosz/.tmux.git
+	branch = master
 [submodule "Openwrt/openwrt"]
 	path = Openwrt/openwrt
-	url = https://github.com/eallion/openwrt
+	url = https://github.com/eallion/openwrt.git
+	branch = master
+[submodule "Windows/proxysu"]
+	path = Windows/proxysu
+	url = https://github.com/proxysu/windows.git
+	branch = master
