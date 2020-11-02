@@ -3,14 +3,23 @@
 # https://github.com/eallion/openwrt
 #=============================================================
 
+# workspace
+lede_path="~/Documents/lede"
+
 # Clone Lean's lede
-cd ~/Documents/
+cd ~
+if [ ! -d "Documents" ]; then
+    mkdir -p Documents
+fi
+
+cd ~/Documents
 if [ ! -d "lede" ]; then
     sudo apt-get update
     sudo apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget swig rsync
     git clone https://github.com/coolsnowwolf/lede
+    cd ~/Documents/lede
 else
-    cd lede
+    cd ~/Documents/lede
     # git fetch --all
     # git reset --hard origin/master
     git status
@@ -19,8 +28,6 @@ else
     git pull
     git submodule update
 fi
-
-cd ~/Documents/lede
 
 # Uncomment a feed source
 sed -i 's/^#\(.*helloworld\)/\1/' feeds.conf.default
@@ -36,11 +43,11 @@ sed -i 's/192.168.1.1/192.168.0.1/g' package/base-files/files/bin/config_generat
 ./scripts/feeds install -a
 
 # Package Chin
-cd package
+cd ~/Documents/lede/package
 if [ ! -d "chin" ]; then
     mkdir -p chin
 fi
-cd chin
+cd ~/Documents/lede/package/chin
 
 # Add aliddns
 if [ ! -d "luci-app-aliddns" ]; then
@@ -89,12 +96,7 @@ fi
 # Download config
 cd ~/Documents/lede
 rm -rf ./tmp && rm -rf .config
-if [ ! -d "openwrt" ]; then
-    git submodule add -b main https://github.com/eallion/openwrt.git openwrt
-else
-    git submodule update
-fi
-cp openwrt/.config .config
+wget -c https://raw.githubusercontent.com/eallion/openwrt/main/.config
 echo " "
 echo " "
 echo "======================================"
