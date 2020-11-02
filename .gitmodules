@@ -14,6 +14,3 @@
 [submodule "Debian/.tmux"]
 	path = Debian/.tmux
 	url = https://github.com/gpakosz/.tmux.git
-[submodule "Debian/Pictures/Big-Sur-Debian"]
-	path = Debian/Pictures/Big-Sur-Debian
-	url = https://github.com/eallion/Big-Sur-Ubuntu.git
