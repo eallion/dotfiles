@@ -4,13 +4,9 @@
 [submodule "Ubuntu/Pictures/Big-Sur-Ubuntu"]
 	path = Ubuntu/Pictures/Big-Sur-Ubuntu
 	url = https://github.com/eallion/Big-Sur-Ubuntu.git
-	branch = master
 [submodule "Ubuntu/.tmux"]
 	path = Ubuntu/.tmux
 	url = https://github.com/gpakosz/.tmux.git
 [submodule "Openwrt/openwrt"]
 	path = Openwrt/openwrt
 	url = https://github.com/eallion/openwrt
-[submodule "Debian/.tmux"]
-	path = Debian/.tmux
-	url = https://github.com/gpakosz/.tmux.git
