@@ -1,7 +1,7 @@
 [user]
 	email = eallions@gmail.com
 	name = Charles Chin
-	signingkey = E7ECE0FE00D48B4B40FDDB60C6EF5E40DCA03751
+	signingkey = 2F8B25C0D2620D1AB87F70A364FA40B7BEBEEDAD
 [credential]
 	helper = store
 [filter "lfs"]
@@ -13,10 +13,11 @@
 	gpgsign = true
 [core]
 	quotepath = false
-	editor = vim
+	editor = \"C:\\Users\\eallion\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\" --wait
 	whitespace = space-before-tab,-indent-with-non-tab,trailing-space
 	untrackedCache = true
 	precomposeunicode = false
+	autocrlf = true
 [tag]
 	forcesignannotated = true
 [push]
