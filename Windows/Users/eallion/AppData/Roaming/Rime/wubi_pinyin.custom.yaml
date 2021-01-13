@@ -4,11 +4,17 @@ patch:
       "%" : "%"
       "*" : "*"
       "|" : "|"
+      "<": ["《", "<", "〈", "«", "‹"]
+      ">": ["》", ">", "〉", "»", "›"]
+
   punctuator/half_shape:
       "/" : "/"
       "%" : "%"
       "*" : "*"
       "|" : "|"
+      "<": ["《", "<", "〈", "«", "‹"]
+      ">": ["》", ">", "〉", "»", "›"]
+
   recognizer/patterns/reverse_lookup: # 关闭 ` 键的反查功能
     'punctuator/full_shape/`': "`"
     'punctuator/half_shape/`': "`"
@@ -17,14 +23,14 @@ patch:
 
   "switches/@0/reset": 1 # 1 默认英文状态，0 默认中文状态
 
-  //"translator/dictionary": eallion
-
+  # 自定义短语 Custom_phrase.txt # Tab 不能用空格代替
   engine/translators:
     - punct_translator
     - reverse_lookup_translator
     - script_translator
     - table_translator@custom_phrase
     - table_translator
+    
   custom_phrase:
     dictionary: ""
     user_dict: custom_phrase
