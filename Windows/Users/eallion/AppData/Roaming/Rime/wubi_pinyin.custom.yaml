@@ -1,0 +1,34 @@
+patch:
+  punctuator/full_shape: # 自定义全角标点符号（覆盖默认设置）
+      "/" : "/"
+      "%" : "%"
+      "*" : "*"
+      "|" : "|"
+  punctuator/half_shape:
+      "/" : "/"
+      "%" : "%"
+      "*" : "*"
+      "|" : "|"
+  recognizer/patterns/reverse_lookup: # 关闭 ` 键的反查功能
+    'punctuator/full_shape/`': "`"
+    'punctuator/half_shape/`': "`"
+
+  translator/enable_user_dict: false # 关闭用户词典
+
+  "switches/@0/reset": 1 # 1 默认英文状态，0 默认中文状态
+
+  //"translator/dictionary": eallion
+
+  engine/translators:
+    - punct_translator
+    - reverse_lookup_translator
+    - script_translator
+    - table_translator@custom_phrase
+    - table_translator
+  custom_phrase:
+    dictionary: ""
+    user_dict: custom_phrase
+    db_class: stabledb
+    enable_completion: false
+    enable_sentence: false
+    initial_quality: 1
