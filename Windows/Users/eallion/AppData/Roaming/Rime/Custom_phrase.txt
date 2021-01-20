@@ -15,27 +15,16 @@
 # 虽然文本码表编辑较为方便，但不適合导入大量条目
 #
 # no comment
+
 大大的小蜗牛	ddrr	1
+大利之川	dtpk	1
+
 eallion	ea	1
-# Rime table
-# coding: utf-8
-#@/db_name custom_phrase.txt
-#@/db_type tabledb
-#
-# 用於【五笔拼音】系列输入方案
-# 【小狼毫】0.9.21 以上
-#
-# 请將该文件以UTF-8编码保存为
-# Rime用户文件夹/custom_phrase.txt
-#
-# 码表各字段以製表符（Tab）分隔
-# 顺序为：文字、编码、权重（决定重码的次序、可选）
-#
-# 虽然文本码表编辑较为方便，但不適合导入大量条目
-#
-# no comment
-大大的小蜗牛	ddrr	1
-eallion	ea	1
+eallions@gmail.com	zz	2
+https://eallion.com	zz	1
+
+云	fcu	5
+
 莫凡	ajmy	1
 蕉下	awgh	1
 耳温	bgij	1
@@ -43,10 +32,8 @@ eallion	ea	1
 大咖	ddkl	1
 石竹	dgtt	1
 克重	dqtg	1
-大利之川	dtpk	1
 秦超	dwfh	1
 动图	fclt	1
-云虚拟	fhrn	1
 专享	fnyb	1
 天蓝	gdaj	1
 天祥	gdpy	1
@@ -108,3 +95,6 @@ eallion	ea	1
 纸杯	xqsg	1
 亭山	ypmm	1
 话术	ytsy	1
+火绒	ooxa	1
+微信	tmwy	1
+微博	tmfg	1
