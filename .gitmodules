@@ -1,12 +1,11 @@
-[submodule "proxysu"]
-	path = proxysu
-	url = https://github.com/proxysu/windows.git
-	branch = master
-[submodule "chinawareblock"]
-	path = chinawareblock
+[submodule "Program Files/ProxySU"]
+	path = Program Files/ProxySU
+	url = https://github.com/proxysu/ProxySU.git
+[submodule "Program Files/chinawareblock"]
+	path = Program Files/chinawareblock
 	url = https://github.com/sharoue/chinawareblock.git
-[submodule "Malware-Patch"]
-	path = Malware-Patch
+[submodule "Program Files/Malware-Patch"]
+	path = Program Files/Malware-Patch
 	url = https://github.com/the1812/Malware-Patch.git
 [submodule "Users/eallion/AppData/Roaming/Typora/themes/GitHubKai"]
 	path = Users/eallion/AppData/Roaming/Typora/themes/GitHubKai
