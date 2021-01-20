@@ -24,3 +24,9 @@
 [submodule "Windows/Malware-Patch"]
 	path = Windows/Malware-Patch
 	url = https://github.com/the1812/Malware-Patch.git
+[submodule "Windows/Users/eallion/AppData/Roaming/Typora/themes/GitHubKai"]
+	path = Windows/Users/eallion/AppData/Roaming/Typora/themes/GitHubKai
+	url = https://github.com/DonkeyBear/Typora-theme-GitHubKai.git
+[submodule "Windows/Users/eallion/AppData/Roaming/Typora/themes/github-night"]
+	path = Windows/Users/eallion/AppData/Roaming/Typora/themes/github-night
+	url = https://github.com/kinoute/typora-github-night-theme.git
