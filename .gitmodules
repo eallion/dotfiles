@@ -18,3 +18,9 @@
 	path = Windows/proxysu
 	url = https://github.com/proxysu/windows.git
 	branch = master
+[submodule "Windows/chinawareblock"]
+	path = Windows/chinawareblock
+	url = https://github.com/sharoue/chinawareblock.git
+[submodule "Windows/Malware-Patch"]
+	path = Windows/Malware-Patch
+	url = https://github.com/the1812/Malware-Patch.git
