@@ -29,7 +29,7 @@ patch:
   # menu/alternative_select_labels: [ ❶,❷,❷,❸,❹,❺,❻,❼,❽,❾,❿ ]  # 修改候选標籤
   menu/page_size: 5 # 每页候选词数量
   style/horizontal: false      # false 为候选横排显示
-  style/display_tray_icon: true  # 显示托盘图标
+  style/display_tray_icon: false  # 是否显示托盘图标
   # style/font_face: "Noto Sans SC"  # 字体名称，从记事本等处的系统字体对话框里能看到
   # style/font_point: 14     # 字號，只认数字的，不认「五號」、「小五」这样的
   speller/auto_select: false # 取消四码自动上屏
