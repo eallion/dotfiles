@@ -13,3 +13,9 @@
 [submodule "Users/eallion/AppData/Roaming/Typora/themes/github-night"]
 	path = Users/eallion/AppData/Roaming/Typora/themes/github-night
 	url = https://github.com/kinoute/typora-github-night-theme.git
+[submodule "UserseallionAppDataRoamingTyporathemesblubook-theme"]
+	path = UserseallionAppDataRoamingTyporathemesblubook-theme
+	url = https://github.com/FishionYu/typora-blubook-theme
+[submodule "Users/eallion/AppData/Roaming/Typora/themes/blubook-theme"]
+	path = Users/eallion/AppData/Roaming/Typora/themes/blubook-theme
+	url = https://github.com/FishionYu/typora-blubook-theme
