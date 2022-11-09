@@ -7,15 +7,3 @@
 [submodule "Program Files/Malware-Patch"]
 	path = Program Files/Malware-Patch
 	url = https://github.com/the1812/Malware-Patch.git
-[submodule "Users/eallion/AppData/Roaming/Typora/themes/GitHubKai"]
-	path = Users/eallion/AppData/Roaming/Typora/themes/GitHubKai
-	url = https://github.com/DonkeyBear/Typora-theme-GitHubKai.git
-[submodule "Users/eallion/AppData/Roaming/Typora/themes/github-night"]
-	path = Users/eallion/AppData/Roaming/Typora/themes/github-night
-	url = https://github.com/kinoute/typora-github-night-theme.git
-[submodule "UserseallionAppDataRoamingTyporathemesblubook-theme"]
-	path = UserseallionAppDataRoamingTyporathemesblubook-theme
-	url = https://github.com/FishionYu/typora-blubook-theme
-[submodule "Users/eallion/AppData/Roaming/Typora/themes/blubook-theme"]
-	path = Users/eallion/AppData/Roaming/Typora/themes/blubook-theme
-	url = https://github.com/FishionYu/typora-blubook-theme
