@@ -1,9 +1,9 @@
 [user]
     email = eallions@gmail.com
     name = Charles Chin
-    signingkey = 2F8B25C0D2620D1AB87F70A364FA40B7BEBEEDAD
+	signingkey = 888888888888888
 [credential]
-    helper = store
+	helper = manager-core
 [filter "lfs"]
     clean = git-lfs clean -- %f
     smudge = git-lfs smudge -- %f
@@ -13,7 +13,7 @@
     gpgsign = true
 [core]
     quotepath = false
-    editor = \"C:\\Users\\eallion\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\" --wait
+    editor = \"D:\\Scoop\\apps\\vscode\\current\\Code.exe\" --wait
     whitespace = space-before-tab,-indent-with-non-tab,trailing-space
     untrackedCache = true
     precomposeunicode = false
