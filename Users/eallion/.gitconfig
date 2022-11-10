@@ -13,7 +13,7 @@
     gpgsign = true
 [core]
     quotepath = false
-    editor = \"D:\\Scoop\\apps\\vscode\\current\\Code.exe\" --wait
+    editor = 'C:/Program Files/Notepad++/notepad++.exe' -multiInst -notabbar -nosession -noPlugin
     whitespace = space-before-tab,-indent-with-non-tab,trailing-space
     untrackedCache = true
     precomposeunicode = false
