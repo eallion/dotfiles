@@ -136,4 +136,4 @@ pipestatus = true
 disabled = false
 time_format = "%R[%p] %a"
 style = "bg:#33658A"
-format = '[ ✨ $time ]($style)'
+format = '[ 🕓︎$time ]($style)'
