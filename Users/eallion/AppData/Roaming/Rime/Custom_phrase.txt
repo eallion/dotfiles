@@ -16,20 +16,16 @@
 #
 # no comment
 
-大大的小蜗牛	ddrr	1
-大利之川	dtpk	1
-
 eallion	ea	1
 eallions@gmail.com	zz	2
 https://eallion.com	zz	1
-
-云	fcu	5
 
 莫凡	ajmy	1
 蕉下	awgh	1
 耳温	bgij	1
 耳线	bgxg	1
 大咖	ddkl	1
+大大的小蜗牛	ddrr	1
 石竹	dgtt	1
 克重	dqtg	1
 秦超	dwfh	1
@@ -37,8 +33,8 @@ https://eallion.com	zz	1
 专享	fnyb	1
 天蓝	gdaj	1
 天祥	gdpy	1
-天乐	gdqi	1
 天猫	gdqt	1
+天乐	gdqi	1
 点赞	hktf	1
 占比	hkxx	1
 汉麻	icys	1
@@ -55,6 +51,7 @@ https://eallion.com	zz	1
 刷单	nmuj	1
 羽记	nnyn	1
 爆款	ojff	1
+火绒	ooxa	1
 宇鹏	pgee	1
 客单	ptuj	1
 袍江	puia	1
@@ -80,7 +77,9 @@ https://eallion.com	zz	1
 千牛	tfrh	1
 利川	tjkt	1
 微云	tmfc	1
+微博	tmfg	1
 微淘	tmiq	1
+微信	tmwy	1
 符文	twyy	1
 美团	uglf	1
 单品	ujkk	1
@@ -95,6 +94,3 @@ https://eallion.com	zz	1
 纸杯	xqsg	1
 亭山	ypmm	1
 话术	ytsy	1
-火绒	ooxa	1
-微信	tmwy	1
-微博	tmfg	1
