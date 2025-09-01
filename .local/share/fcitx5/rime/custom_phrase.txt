@@ -1,0 +1,140 @@
+# Rime table
+# coding: utf-8
+#@/db_name custom_phrase.txt
+#@/db_type tabledb
+#
+# 用於【五笔拼音】系列输入方案
+# 【小狼毫】0.9.21 以上
+#
+# 请將该文件以UTF-8编码保存为
+# Rime用户文件夹/custom_phrase.txt
+#
+# 码表各字段以製表符（Tab）分隔
+# 顺序为：文字、编码、权重（决定重码的次序、可选）
+#
+# 虽然文本码表编辑较为方便，但不適合导入大量条目
+#
+# no comment
+
+eallion	ea	1
+ealbum	eal	1
+Cloudflare	cl	1
+GitHub	gi	1
+来	go	2
+Google	go	1
+
+eallions@gmail.com	zz	5
+https://eallion.com	zz	4
+15067575577	zz	3
+19092327756	zz	2
+16217193222	zz	1
+
+422802198604144412	zzz	5
+利川市科西码电子商务有限公司	zzz 4
+91422802MACFH8N70B	zzz	3
+利川市叁么叁网络科技工作室	zzz	2
+91422802MAD1G44K9T	zzz	1
+
+拉取	rubc	1
+团建	lfvf	1
+重置	tglf	1
+取值	bcwf	1
+复式	tjaa	1
+文本	yysg	1
+验证	cwyg	1
+万达	dndp	1
+剪映	uejm	1
+定制	pgrm	1
+键帽	qvmh	1
+沙溪	iiie	1
+跳转	khlf	1
+秦喆语	dfyg	1
+自建	thvf	1
+安卓	pvhj	1
+观影	cmjy	1
+估值	wdwf	1
+推送	rwud	1
+暗黑	julf	1
+适配	tdsg	1
+烤肠	ofen	1
+宫斗	pkuf	1
+京东	yiai	1
+报错	rbqa	1
+挂耳	rfbg	1
+官网	pnmq	1
+莫凡	ajmy	1
+蕉下	awgh	1
+耳温	bgij	1
+耳线	bgxg	1
+大咖	ddkl	1
+大大的小蜗牛	ddrr	1
+石竹	dgtt	1
+克重	dqtg	1
+秦超	dwfh	1
+动图	fclt	1
+专享	fnyb	1
+天蓝	gdaj	1
+天祥	gdpy	1
+天猫	gdqt	1
+天乐	gdqi	1
+点赞	hktf	1
+占比	hkxx	1
+汉麻	icys	1
+沙田	iill	1
+水冷	iiuw	1
+测款	imff	1
+派件	irwr	1
+润臣	iuah	1
+遇水	jmii	1
+电竞	jnuk	1
+电商	jnum	1
+足金	khqq	1
+网红	mqxa	1
+刷单	nmuj	1
+羽记	nnyn	1
+爆款	ojff	1
+火绒	ooxa	1
+宇鹏	pgee	1
+客单	ptuj	1
+袍江	puia	1
+实标	pusf	1
+补分	puwv	1
+空包	pwqn	1
+针纺	qfxy	1
+钻展	qhna	1
+免单	qkuj	1
+排单	rduj	1
+扣点	rkhk	1
+手淘	rtiq	1
+手链	rtql	1
+抖音	ruuj	1
+扫码	rvdc	1
+指链	rxql	1
+横岭	samw	1
+顶格	sdst	1
+西子	sgbb	1
+酷安	sgpv	1
+杨福	snpy	1
+选款	tfff	1
+千牛	tfrh	1
+利川	tjkt	1
+微云	tmfc	1
+微博	tmfg	1
+微淘	tmiq	1
+微信	tmwy	1
+符文	twyy	1
+美团	uglf	1
+单品	ujkk	1
+闲鱼	usqg	1
+代练	waxa	1
+伞耀	wuiq	1
+伞业	wuog	1
+众测	wwim	1
+集客	wypt	1
+含金	wyqq	1
+领券	wyud	1
+纸杯	xqsg	1
+亭山	ypmm	1
+话术	ytsy	1
+去	fcu	2
+云	fcu	1

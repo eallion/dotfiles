@@ -1,9 +1,9 @@
 [user]
-	email = eallion.s+github@gmail.com
-	name = Charles Chin
-	signingkey = 327C873BCB0A151F1A599A3CE685DDDDDDDDDDDD
+    email = eallion.s+github@gmail.com
+    name = Charles Chin
+    signingkey = 327C873BCB0A151F1A599A3CE685DDDDDDDDDDDD
 [credential]
-	helper = manager
+    helper = manager
 [filter "lfs"]
     clean = git-lfs clean -- %f
     smudge = git-lfs smudge -- %f
@@ -13,12 +13,14 @@
     gpgsign = true
 [core]
     quotepath = false
-    editor = \"C:\\\\Program Files\\\\Notepad++\\\\notepad++.exe\" -multiInst -notabbar -nosession -noPlugin
+    # editor =  "vim -f -u NONE -i NONE -N"
+    editor = "code --wait --disable-extensions --no-sandbox --disable-telemetry --new-window"
+    # editor = "gnome-text-editor --ignore-session"
     whitespace = space-before-tab,-indent-with-non-tab,trailing-space
     untrackedCache = true
     precomposeunicode = false
-    autocrlf = true
-	compression = 0
+    autocrlf = input
+    compression = 0
 [tag]
     forcesignannotated = true
 [push]
@@ -47,9 +49,10 @@
 
     # Clone a repository including all submodules.
     c = clone --recursive
+    clone = clone --recursive
 
     cs = commit -s
-		csm = commit -s -m
+    csm = commit -s -m
 
     # Commit all changes.
     ca = !git add -A && git commit -av
@@ -120,8 +123,16 @@
     changed = green
     untracked = cyan
 [http]
-	postBuffer = 157286400
+    postBuffer = 157286400
 [pack]
-	window = 1
-[safe]
-	directory = D:/github.com/dotfiles
+    window = 1
+[init]
+    defaultBranch = main
+[diff]
+    tool = vscode
+[difftool "vscode"]
+    cmd = code --wait --diff $LOCAL $REMOTE
+[merge]
+    tool = vscode
+[mergetool "vscode"]
+    cmd = code --wait $MERGED

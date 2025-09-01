@@ -1,172 +1,202 @@
-eval "$(starship init bash)"
-mcd() {
-  mkdir -p "$1" && cd "$1"
-}
-tarzip() {
-  tar -czvf "$1.tar.gz" "$1"
-}
-alias "gc!"="git commit -v --amend"
-alias "gca!"="git commit -v -a --amend"
-alias "gcan!"="git commit -v -a --no-edit --amend"
-alias "gcans!"="git commit -v -a -s --no-edit --amend"
-alias "gcn!"="git commit -v --no-edit --amend"
-alias "gpf!"="git push --force"
-alias c=clear
-alias dcd='docker compose down'
-alias dcdown='docker compose down'
-alias dcp='docker compose pull'
-alias dcu='docker compose up -d'
-alias dcud='docker compose up -d'
-alias dcudf='docker compose up -d --force-recreate'
-alias dcuf='docker compose up -d --force-recreate'
-alias dcup='docker compose up -d'
-alias dcupf='docker compose up -d --force-recreate'
-alias dlf='docker logs -f'
-alias edit="'C:/Program Files (x86)/Notepad++/notepad++.exe' -nosession -noPlugin"
-alias g=git
-alias ga="git add"
-alias gaa="git add --all"
-alias gam="git am"
-alias gama="git am --abort"
-alias gamc="git am --continue"
-alias gams="git am --skip"
-alias gamscp="git am --show-current-patch"
-alias gap="git apply"
-alias gapa="git add --patch"
-alias gapt="git apply --3way"
-alias gau="git add --update"
-alias gav="git add --verbose"
-alias gb="git branch"
-alias gbD="git branch -D"
-alias gba="git branch -a"
-alias gbd="git branch -d"
-alias gbl="git blame -b -w"
-alias gbnm="git branch --no-merged"
-alias gbr="git branch --remote"
-alias gbs="git bisect"
-alias gbsb="git bisect bad"
-alias gbsg="git bisect good"
-alias gbsr="git bisect reset"
-alias gbss="git bisect start"
-alias gc="git commit -v"
-alias gca="git commit -v -a"
-alias gcam="git commit -a -m"
-alias gcb="git checkout -b"
-alias gcd="git checkout develop"
-alias gcf="git config --list"
-alias gcl="git clone --recurse-submodules"
-alias gclean="git clean -id"
-alias gcm="git commit -a -m"
-alias gcmsg="git commit -m"
-alias gco="git checkout"
-alias gcount="git shortlog -sn"
-alias gcp="git cherry-pick"
-alias gcpa="git cherry-pick --abort"
-alias gcpc="git cherry-pick --continue"
-alias gcs="git commit -S"
-alias gcsm="git commit -s -m"
-alias gd="git diff"
-alias gdca="git diff --cached"
-alias gdcw="git diff --cached --word-diff"
-alias gds="git diff --staged"
-alias gdt="git diff-tree --no-commit-id --name-only -r"
-alias gdw="git diff --word-diff"
-alias gf="git fetch"
-alias gfa="git fetch --all --prune"
-alias gfg="git ls-files | grep"
-alias gfo="git fetch origin"
-alias gg="git gui citool"
-alias gga="git gui citool --amend"
-alias ggpur=ggu
-alias ghh="git help"
-alias gignore="git update-index --assume-unchanged"
-alias gignored="git ls-files -v | grep "^[[:lower:]]""
-alias gist="nocorrect gist"
-alias github="web_search github"
-alias givero="web_search givero"
-alias gk="\gitk --all --branches"
-alias gl="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset"\"
-alias glg="git log --stat"
-alias glgg="git log --graph"
-alias glgga="git log --graph --decorate --all"
-alias glgm="git log --graph --max-count=10"
-alias glgp="git log --stat -p"
-alias glo="git log --oneline --decorate"
-alias globurl="noglob urlglobber "
-alias glod="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset"\"
-alias glods="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset"\"" --date=short"
-alias glog="git log --oneline --decorate --graph"
-alias gloga="git log --oneline --decorate --graph --all"
-alias glol="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset"\"
-alias glola="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset"\"" --all"
-alias glols="git log --graph --pretty="\""%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset"\"" --stat"
-alias glp=_git_log_prettily
-alias gm="git merge"
-alias gma="git merge --abort"
-alias gmt="git mergetool --no-prompt"
-alias gmtvim="git mergetool --no-prompt --tool=vimdiff"
-alias goodreads="web_search goodreads"
-alias google="web_search google"
-alias gp="git push"
-alias gpd="git push --dry-run"
-alias gpf="git push --force-with-lease"
-alias gpoat="git push origin --all && git push origin --tags"
-alias gpristine="git reset --hard && git clean -dffx"
-alias gpu="git push upstream"
-alias gpv="git push -v"
-alias gr="git remote"
-alias gra="git remote add"
-alias grb="git rebase"
-alias grba="git rebase --abort"
-alias grbc="git rebase --continue"
-alias grbd="git rebase develop"
-alias grbi="git rebase -i"
-alias grbs="git rebase --skip"
-alias grep="grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}"
-alias grev="git revert"
-alias grh="git reset"
-alias grhh="git reset --hard"
-alias grm="git rm"
-alias grmc="git rm --cached"
-alias grmv="git remote rename"
-alias grrm="git remote remove"
-alias grs="git restore"
-alias grset="git remote set-url"
-alias grss="git restore --source"
-alias gru="git reset --"
-alias grup="git remote update"
-alias grv="git remote -v"
-alias gsb="git status -sb"
-alias gsd="git svn dcommit"
-alias gsh="git show"
-alias gsi="git submodule init"
-alias gsps="git show --pretty=short --show-signature"
-alias gsr="git svn rebase"
-alias gss="git status -s"
-alias gst="git status"
-alias gsta="git stash push"
-alias gstaa="git stash apply"
-alias gstall="git stash --all"
-alias gstc="git stash clear"
-alias gstd="git stash drop"
-alias gstl="git stash list"
-alias gstp="git stash pop"
-alias gsts="git stash show --text"
-alias gstu="git stash --include-untracked"
-alias gsu="git submodule update"
-alias gsw="git switch"
-alias gswc="git switch -c"
-alias gtl="gtl(){ git tag --sort=-v:refname -n -l "${1}*" }; noglob gtl"
-alias gts="git tag -s"
-alias gtv="git tag | sort -V"
-alias gunignore="git update-index --no-assume-unchanged"
-alias gunwip="git log -n 1 | grep -q -c "\-\-wip\-\-" && git reset HEAD~1"
-alias gup="git pull --rebase"
-alias gupa="git pull --rebase --autostash"
-alias gupav="git pull --rebase --autostash -v"
-alias gupv="git pull --rebase -v"
-alias gwch="git whatchanged -p --abbrev-commit --pretty=medium"
-alias la="ls -lAh"
-alias ll='ls -alF'
-alias ls="ls --color=tty"
-alias lsa="ls -lah"
+# Amazon Q pre block. Keep at the top of this file.
+[[ -f "${HOME}/.local/share/amazon-q/shell/bashrc.pre.bash" ]] && builtin source "${HOME}/.local/share/amazon-q/shell/bashrc.pre.bash"
+# Enable the subsequent settings only in interactive sessions
+case $- in
+  *i*) ;;
+    *) return;;
+esac
+
+export PATH="$HOME/.local/bin:$PATH"
+
+export PATH=$PATH:/var/lib/flatpak/exports/bin
+
+# Path to your oh-my-bash installation.
+export OSH="$HOME/.oh-my-bash"
+
+# Set name of the theme to load. Optionally, if you set this to "random"
+# it'll load a random theme each time that oh-my-bash is loaded.
+OSH_THEME="powerline-multiline"
+
+# If you set OSH_THEME to "random", you can ignore themes you don't like.
+# OMB_THEME_RANDOM_IGNORED=("powerbash10k" "wanelo")
+# You can also specify the list from which a theme is randomly selected:
+# OMB_THEME_RANDOM_CANDIDATES=("font" "powerline-light" "minimal")
+
+# Uncomment the following line to use case-sensitive completion.
+# OMB_CASE_SENSITIVE="true"
+
+# Uncomment the following line to use hyphen-insensitive completion. Case
+# sensitive completion must be off. _ and - will be interchangeable.
+# OMB_HYPHEN_SENSITIVE="false"
+
+# Uncomment the following line to disable bi-weekly auto-update checks.
+# DISABLE_AUTO_UPDATE="true"
+
+# Uncomment the following line to change how often to auto-update (in days).
+# export UPDATE_OSH_DAYS=13
+
+# Uncomment the following line to disable colors in ls.
+# DISABLE_LS_COLORS="true"
+
+# Uncomment the following line to disable auto-setting terminal title.
+# DISABLE_AUTO_TITLE="true"
+
+# Uncomment the following line to enable command auto-correction.
+# ENABLE_CORRECTION="true"
+
+# Uncomment the following line to display red dots whilst waiting for completion.
+# COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+# Uncomment the following line if you don't want the repository to be considered dirty
+# if there are untracked files.
+# SCM_GIT_DISABLE_UNTRACKED_DIRTY="true"
+
+# Uncomment the following line if you want to completely ignore the presence
+# of untracked files in the repository.
+# SCM_GIT_IGNORE_UNTRACKED="true"
+
+# Uncomment the following line if you want to change the command execution time
+# stamp shown in the history command output.  One of the following values can
+# be used to specify the timestamp format.
+# * 'mm/dd/yyyy'     # mm/dd/yyyy + time
+# * 'dd.mm.yyyy'     # dd.mm.yyyy + time
+# * 'yyyy-mm-dd'     # yyyy-mm-dd + time
+# * '[mm/dd/yyyy]'   # [mm/dd/yyyy] + [time] with colors
+# * '[dd.mm.yyyy]'   # [dd.mm.yyyy] + [time] with colors
+# * '[yyyy-mm-dd]'   # [yyyy-mm-dd] + [time] with colors
+# If not set, the default value is 'yyyy-mm-dd'.
+# HIST_STAMPS='yyyy-mm-dd'
+
+# Uncomment the following line if you do not want OMB to overwrite the existing
+# aliases by the default OMB aliases defined in lib/*.sh
+# OMB_DEFAULT_ALIASES="check"
+
+# Would you like to use another custom folder than $OSH/custom?
+# OSH_CUSTOM=/path/to/new-custom-folder
+
+# To disable the uses of "sudo" by oh-my-bash, please set "false" to
+# this variable.  The default behavior for the empty value is "true".
+OMB_USE_SUDO=true
+
+# To enable/disable display of Python virtualenv and condaenv
+# OMB_PROMPT_SHOW_PYTHON_VENV=true  # enable
+# OMB_PROMPT_SHOW_PYTHON_VENV=false # disable
+
+# To enable/disable Spack environment information
+# OMB_PROMPT_SHOW_SPACK_ENV=true  # enable
+# OMB_PROMPT_SHOW_SPACK_ENV=false # disable
+
+# Which completions would you like to load? (completions can be found in ~/.oh-my-bash/completions/*)
+# Custom completions may be added to ~/.oh-my-bash/custom/completions/
+# Example format: completions=(ssh git bundler gem pip pip3)
+# Add wisely, as too many completions slow down shell startup.
+completions=(
+  git
+  composer
+  ssh
+)
+
+# Which aliases would you like to load? (aliases can be found in ~/.oh-my-bash/aliases/*)
+# Custom aliases may be added to ~/.oh-my-bash/custom/aliases/
+# Example format: aliases=(vagrant composer git-avh)
+# Add wisely, as too many aliases slow down shell startup.
+aliases=(
+  general
+)
+
+# Which plugins would you like to load? (plugins can be found in ~/.oh-my-bash/plugins/*)
+# Custom plugins may be added to ~/.oh-my-bash/custom/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(
+  git
+  bashmarks
+  bu
+  starship
+  sudo
+)
+
+# Which plugins would you like to conditionally load? (plugins can be found in ~/.oh-my-bash/plugins/*)
+# Custom plugins may be added to ~/.oh-my-bash/custom/plugins/
+# Example format:
+#  if [ "$DISPLAY" ] || [ "$SSH" ]; then
+#      plugins+=(tmux-autoattach)
+#  fi
+
+# If you want to reduce the initialization cost of the "tput" command to
+# initialize color escape sequences, you can uncomment the following setting.
+# This disables the use of the "tput" command, and the escape sequences are
+# initialized to be the ANSI version:
+#
+#OMB_TERM_USE_TPUT=no
+
+source "$OSH"/oh-my-bash.sh
+
+# User configuration
+# export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+# export LANG=en_US.UTF-8
+
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='mvim'
+# fi
+
+# Compilation flags
+# export ARCHFLAGS="-arch x86_64"
+
+# ssh
+# export SSH_KEY_PATH="~/.ssh/rsa_id"
+
+# Set personal aliases, overriding those provided by oh-my-bash libs,
+# plugins, and themes. Aliases can be placed here, though oh-my-bash
+# users are encouraged to define aliases within the OSH_CUSTOM folder.
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+# alias bashconfig="mate ~/.bashrc"
+# alias ohmybash="mate ~/.oh-my-bash"
+
+# Custom
+export HISTSIZE=10000
+export HISTFILESIZE=10000
+
+# Custom Aliases
+[ -f ~/.bash_aliases ] && source ~/.bash_aliases
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# 检查是否是通过 SSH 登录（通过判断 SSH_CLIENT 或 SSH_TTY 环境变量是否存在）
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
+    # SSH_CLIENT 格式通常为: <客户端IP> <本地端口> <远程端口>
+    # 提取客户端 IP 地址
+    CLIENT_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+    
+    # 将时区临时设置为 Asia/Shanghai (UTC+8) 来获取北京时间
+    TZ='Asia/Shanghai' date_format="+%Y-%m-%d %H:%M:%S (UTC+8)"
+    
+    echo "--- 远程会话信息 ---"
+    echo "用户: $(whoami)"
+    echo "主机: $(hostname)"
+    echo "系统: $(uname -sro)"
+    
+    # 显示登录者 IP
+    echo "客户端 IP: $CLIENT_IP"
+    
+    # 显示 UTC+8 格式的登录时间
+    echo "登录时间 (北京时间): $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S (UTC+8)')"
+    echo "----------------------"
+fi
+
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
