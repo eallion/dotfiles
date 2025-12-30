@@ -6,7 +6,7 @@ My dotfiles, keep it simple.
 
 #### 方法一：通过 curl 直接安装
 
-**安装 Bash 配置：**
+**安装 Bash 配置（适用于服务器）：**
 
 ```bash
 curl -sSL https://s.e5n.cc/dotfiles | bash
@@ -14,7 +14,7 @@ curl -sSL https://s.e5n.cc/dotfiles | bash
 curl -sSL https://s.e5n.cc/dotfiles | sh
 ```
 
-**安装 Zsh 配置：**
+**安装 Zsh 配置（适用于桌面/开发环境）：**
 
 ```bash
 curl -sSL https://s.e5n.cc/dotfiles | zsh
@@ -38,44 +38,34 @@ cd dotfiles
 ./install.sh zsh
 ```
 
-```http
-$ curl -I https://s.e5n.cc/dotfiles
-HTTP/2 301
-content-type: text/html
-location: https://raw.githubusercontent.com/eallion/dotfile/refs/heads/main/setup.sh
-cf-placement: local-LAX
-strict-transport-security: max-age=15552000; includeSubDomains; preload
-x-content-type-options: nosniff
-vary: accept-encoding
-nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
-server: cloudflare
-alt-svc: h3=":443"; ma=86400
-```
-
 #### 功能特性
 
 **共同特性：**
-- sudo 免密码配置
-- 安装 [Starship](https://starship.rs/)
-- 配置 [Starship](https://starship.rs/) [Gruvbox Rainbow Preset](https://starship.rs/presets/gruvbox-rainbow)
-- 可选安装 Git 配置 (.gitconfig)
-- 可选安装 Alacritty 终端配置
-- 可选安装 Kitty 终端配置
+- **统一别名管理**：`~/.aliases` 跨 Shell 共享，一致的操作体验。
+- **现代化工具链**：集成 `eza` (Better ls), `bat` (Better cat), `btop`, `zoxide` (Smart cd)。
+- **安全防护**：`mv`/`cp`/`rm` 增加安全提示，`rm` 自动关联 `trash-cli`。
+- sudo 免密码配置 (可选)。
+- 安装 [Starship](https://starship.rs/) 及 [Gruvbox Rainbow Preset](https://starship.rs/presets/gruvbox-rainbow)。
+- 可选安装 Git, Alacritty, Kitty 配置。
 
-**Bash 特性：**
-- 安装 [oh-my-bash](https://github.com/ohmybash/oh-my-bash)
-- 下载并替换 `.bashrc`
-- 下载并替换 `.bash_aliases`
-- 安装依赖工具：trash-cli, ripgrep, fd-find
+**ZSH 特性 (Desktop/Dev)：**
+- **Zinit 引擎**：使用最快的 Zinit 插件管理器，极速启动。
+- **Modern Experience**：
+    - **FZF-Tab**：实时预览补全内容 (ls, ps, kill, docker 等)。
+    - **Alias Tip**：当你输入长命令时提醒你使用别名 (`zsh-you-should-use`)。
+- **Turbo Mode**：`nvm`, `docker`, `gh` 等重型插件延迟加载，不拖慢启动。
+- **Plugins**：`zsh-autosuggestions`, `fast-syntax-highlighting`, `history-substring-search`, `extract`, `sudo` 等。
 
-**Zsh 特性：**
-- 安装 [oh-my-zsh](https://ohmyzsh.github.io/)
-- 安装插件：zsh-autosuggestions, fast-syntax-highlighting, zsh-history-substring-search
-- 安装依赖工具：eza, bat, fzf, zoxide, ripgrep, fd-find, gh
-- 下载并替换 `.zshrc`
-- 创建自定义别名文件 `.oh-my-zsh/custom/aliases.zsh`
+**Bash 特性 (Server)：**
+- **Oh My Bash**：轻量级管理。
+- **Lazy Load**：`nvm`/`node`/`npm` 仅在首次使用时加载，确保秒开。
+- **工具对齐**：服务器环境同样配置了 `eza`, `bat`, `fzf` 等工具，保持与 Zsh 一致的手感。
+
+---
 
 # Tips
+
+以下内容由 `setup.sh` 自动处理，仅供参考。
 
 ### Install oh-my-bash
 
@@ -84,7 +74,7 @@ alt-svc: h3=":443"; ma=86400
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)"
 
-curl -sSL https://raw.githubusercontent.com/eallion/dotfile/refs/heads/main/.bashrc -o "$HOME/.bashrc"
+curl -sSL https://raw.githubusercontent.com/eallion/dotfiles/refs/heads/main/.bashrc -o "$HOME/.bashrc"
 ```
 
 ### Install Starship
@@ -178,4 +168,3 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 nvm install --lts
 npm i -g pnpm
 ```
-

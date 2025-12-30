@@ -170,32 +170,31 @@ export HISTSIZE=10000
 export HISTFILESIZE=10000
 
 # Custom Aliases
-[ -f ~/.bash_aliases ] && source ~/.bash_aliases
+# 加载通用 Alias 文件
+[ -f ~/.aliases ] && source ~/.aliases
 
+# NVM Lazy Load
+# 仅当需要时加载 NVM，显著提升 Bash 启动速度
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+nvm() {
+    unset -f nvm
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm "$@"
+}
+npm() {
+    unset -f npm
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    npm "$@"
+}
+node() {
+    unset -f node
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    node "$@"
+}
 
-# 检查是否是通过 SSH 登录（通过判断 SSH_CLIENT 或 SSH_TTY 环境变量是否存在）
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-    # SSH_CLIENT 格式通常为: <客户端IP> <本地端口> <远程端口>
-    # 提取客户端 IP 地址
-    CLIENT_IP=$(echo $SSH_CLIENT | awk '{print $1}')
-    
-    # 将时区临时设置为 Asia/Shanghai (UTC+8) 来获取北京时间
-    TZ='Asia/Shanghai' date_format="+%Y-%m-%d %H:%M:%S (UTC+8)"
-    
-    echo "--- 远程会话信息 ---"
-    echo "用户: $(whoami)"
-    echo "主机: $(hostname)"
-    echo "系统: $(uname -sro)"
-    
-    # 显示登录者 IP
-    echo "客户端 IP: $CLIENT_IP"
-    
-    # 显示 UTC+8 格式的登录时间
-    echo "登录时间 (北京时间): $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S (UTC+8)')"
-    echo "----------------------"
+# 你的远程会话信息显示逻辑
+if [[ -f "$HOME/.login_info.sh" ]]; then
+    bash "$HOME/.login_info.sh"
 fi
 
 export LANG="en_US.UTF-8"

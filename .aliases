@@ -1,0 +1,115 @@
+# Custom Utility Functions
+mcd() {
+  mkdir -p "$1" && cd "$1"
+}
+
+gz() {
+  tar -czvf "$1.tar.gz" "$1"
+}
+
+warn_rm() {
+    if command -v trash >/dev/null 2>&1; then
+        echo "🚨 警告：rm 功能已禁用！" >&2
+        echo " " >&2
+        echo "请使用安全的 'trash file' 命令将文件放入回收站。" >&2
+        echo "用 '\\rm file' 可强制使用系统 rm 功能。" >&2
+        return 1
+    else
+        echo "🚨 警告：rm 功能已禁用！" >&2
+        echo " " >&2
+        echo "请安装 'trash-cli' 以使用回收站代替 rm。" >&2
+        echo " " >&2
+        if command -v apt >/dev/null 2>&1; then
+            echo "• sudo apt install trash-cli" >&2
+        elif command -v yum >/dev/null 2>&1; then
+            echo "• sudo yum install trash-cli" >&2
+        elif command -v brew >/dev/null 2>&1; then
+            echo "• brew install trash-cli" >&2
+        elif command -v pacman >/dev/null 2>&1; then
+            echo "• sudo pacman -S trash-cli" >&2
+        else
+            echo "请前往 https://github.com/andreafrancia/trash-cli 安装 'trash-cli' 。" >&2
+        fi
+        echo " " >&2
+        echo "用 '\\rm file' 可强制使用系统 rm 功能。" >&2
+        return 1
+    fi
+}
+
+# File/Dir Operations (Eza/Ls)
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza'
+    alias l='eza -lbF --git'
+    alias ll='eza -lbGF --git'
+    alias la='eza -lbhHigUmuSa --time-style=long-iso --git --color-scale'
+    alias lx='eza -lbhHigUmuSa@ --time-style=long-iso --git --color-scale'
+    alias lS='eza -1'
+    alias lt='eza --tree --level=2'
+else
+    # Fallback to standard ls if eza is not available
+    alias ls='ls --color=auto'
+    alias ll='ls -alF'
+    alias la='ls -A'
+    alias l='ls -CF'
+fi
+
+# Cat Operations (Bat/Cat)
+if command -v bat >/dev/null 2>&1; then
+    alias cat='bat --paging=never'
+fi
+
+# General Aliases
+alias rm='warn_rm'
+alias kssh="kitten ssh"
+alias icat="kitten icat"
+alias c=clear
+alias cp="cp -iv"
+alias mv="mv -iv"
+alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true)"
+alias python="python3"
+alias sqlite="sqlite3"
+alias ugz='tar -xzvf'
+alias grep='rg'
+
+# Docker Aliases
+# (Preserved custom shortcuts not covered strictly by standard plugins)
+alias d='docker'
+
+# Docker Compose (V2 Modernization)
+# Compatibility: Map legacy command to new syntax
+alias docker-compose='docker compose'
+
+alias dc='docker compose'
+alias dcu='docker compose up -d'
+alias dcd='docker compose down'
+alias dcp='docker compose pull'
+alias dclogs='docker compose logs -f'
+
+# Legacy/Extra shortcuts updated to V2
+alias dcud='docker compose up -d'
+alias dcdown='docker compose down'
+alias dcudf='docker compose up -d --force-recreate'
+alias dcuf='docker compose up -d --force-recreate'
+alias dcup='docker compose up -d'
+alias dcupf='docker compose up -d --force-recreate'
+
+# Container Operations
+alias dps='docker ps -a'
+alias dpsa='docker ps -a'
+alias dim='docker images'
+alias dexec='docker exec -it'
+alias dstopall='docker stop $(docker ps -q)'
+alias drmall='docker rm -f $(docker ps -aq)'
+alias drmi='docker image prune -a'
+alias dnetrm='docker network prune'
+alias dclean='docker system prune -a'
+alias dbuild='docker build --no-cache'
+alias dcip='docker inspect --format="{{.NetworkSettings.IPAddress}}" '
+alias dlast='docker exec -it $(docker ps -lq) bash'
+alias dlogs='docker logs -f'
+alias dlf='docker logs -f'
+
+# Git Aliases
+# Most git aliases are now provided by Zinit OMZP::git plugin.
+# Define only strictly custom overrides or additions here.
+alias g=git

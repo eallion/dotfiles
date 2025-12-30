@@ -1,160 +1,157 @@
-# If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+###
+# Zinit Bootstrap
+###
+if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
+    print -P "%F{33} %F{220}Installing %F{33}ZINIT%F{220} Flexible Shell Manager%f"
+    command mkdir -p "$HOME/.local/share/zinit" && command chmod g-rwX "$HOME/.local/share/zinit"
+    command git clone https://github.com/zdharma-continuum/zinit "$HOME/.local/share/zinit/zinit.git" && \
+        print -P "%F{33} %F{34}Installation successful.%f%b" || \
+        print -P "%F{160} The clone has failed.%f%b"
+fi
 
-export PATH="$HOME/.local/bin:$PATH"
+source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
 
-export PATH=$PATH:/usr/local/go/bin
-
-export PATH=$PATH:/var/lib/flatpak/exports/bin
-
-# Path to your Oh My Zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
-
-# Set name of the theme to load --- if set to "random", it will
-# load a random theme each time Oh My Zsh is loaded, in which case,
-# to know which specific one was loaded, run: echo $RANDOM_THEME
-# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="robbyrussell"
-
-# Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
-# If set to an empty array, this variable will have no effect.
-# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
-
-# Uncomment the following line to use case-sensitive completion.
-CASE_SENSITIVE="false"
-
-# Uncomment the following line to use hyphen-insensitive completion.
-# Case-sensitive completion must be off. _ and - will be interchangeable.
-# HYPHEN_INSENSITIVE="true"
-
-# Uncomment one of the following lines to change the auto-update behavior
-# zstyle ':omz:update' mode disabled  # disable automatic updates
-# zstyle ':omz:update' mode auto      # update automatically without asking
-# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
-
-# Uncomment the following line to change how often to auto-update (in days).
-# zstyle ':omz:update' frequency 13
-
-# Uncomment the following line if pasting URLs and other text is messed up.
-# DISABLE_MAGIC_FUNCTIONS="true"
-
-# Uncomment the following line to disable colors in ls.
-# DISABLE_LS_COLORS="true"
-
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
-
-# Uncomment the following line to enable command auto-correction.
-ENABLE_CORRECTION="true"
-
-# Uncomment the following line to display red dots whilst waiting for completion.
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
-COMPLETION_WAITING_DOTS="true"
-
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
-
-# Uncomment the following line if you want to change the command execution time
-# stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
-HIST_STAMPS="%b %e, %Y"
-
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
-
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
-plugins=(
-    colored-man-pages
-    docker
-    docker-compose
-    emoji
-    extract
-    eza
-    fast-syntax-highlighting
-    fzf
-    gh
-    git
-    nvm
-    sudo
-    zoxide
-    zsh-autosuggestions
-    zsh-bat
-    zsh-history-substring-search
-)
-
-source $ZSH/oh-my-zsh.sh
-
-# User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
+###
+# Basic Environment
+###
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:/usr/local/go/bin:/var/lib/flatpak/exports/bin:$PATH"
 export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
-
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='nvim'
-# fi
-
-# Compilation flags
-export ARCHFLAGS="-arch $(uname -m)"
-
-# Set personal aliases, overriding those provided by Oh My Zsh libs,
-# plugins, and themes. Aliases can be placed here, though Oh My Zsh
-# users are encouraged to define aliases within a top-level file in
-# the $ZSH_CUSTOM folder, with .zsh extension. Examples:
-# - $ZSH_CUSTOM/aliases.zsh
-# - $ZSH_CUSTOM/macos.zsh
-# For a full list of active aliases, run `alias`.
-#
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
-
-# Starship
-eval "$(starship init zsh)"
-
-# Custom
-ZSH_DISABLE_COMPFIX="true"
-
+export EDITOR='nvim' # 默认使用 nvim，如果不存在可能会回退，但在 zinit 之前设置比较好
 export HISTSIZE=10000
 export HISTFILESIZE=10000
+# 建议设置 HISTFILE，Zinit/OMZ 可能会处理，但显式设置更安全
+export HISTFILE="$HOME/.zsh_history"
 
-# 检查是否是通过 SSH 登录（通过判断 SSH_CLIENT 或 SSH_TTY 环境变量是否存在）
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-    # SSH_CLIENT 格式通常为: <客户端IP> <本地端口> <远程端口>
-    # 提取客户端 IP 地址
-    CLIENT_IP=$(echo $SSH_CLIENT | awk '{print $1}')
-    
-    # 将时区临时设置为 Asia/Shanghai (UTC+8) 来获取北京时间
-    TZ='Asia/Shanghai' date_format="%b %e, %Y %H:%M:%S (UTC+8)"
-    
-    echo "--- 远程会话信息 ---"
-    echo "用户: $(whoami)"
-    echo "主机: $(hostname)"
-    echo "系统: $(uname -sro)"
-    
-    # 显示登录者 IP
-    echo "客户端 IP: $CLIENT_IP"
-    
-    # 显示 UTC+8 格式的登录时间
-    echo "登录时间 (北京时间): $(TZ='Asia/Shanghai' date +'%b %e, %Y %H:%M:%S (UTC+8)')"
-    echo "----------------------"
+# 编译选项
+export ARCHFLAGS="-arch $(uname -m)"
+
+###
+# Zinit Plugins
+###
+
+# 1. 加载 OMZ 核心库 (Libs)
+# OMZ 的库提供了很多基础功能，git, completion 等
+zinit wait lucid for \
+    OMZL::git.zsh \
+    OMZL::grep.zsh \
+    OMZL::history.zsh \
+    OMZL::key-bindings.zsh \
+    OMZL::completion.zsh \
+    OMZL::clipboard.zsh \
+    OMZL::directories.zsh \
+    OMZL::theme-and-appearance.zsh
+
+# 2. 加载 OMZ 插件
+# 注意：docker, nvm 等插件比较重，使用 wait async 加载
+zinit wait lucid for \
+    OMZP::git \
+    OMZP::sudo \
+    OMZP::extract \
+    OMZP::colored-man-pages \
+    OMZP::command-not-found
+
+# Docker & Docker Compose
+# 这些插件主要提供补全，lazy load 就可以了
+zinit wait lucid for \
+    OMZP::docker \
+    OMZP::docker-compose
+
+# GH (Github CLI)
+zinit wait lucid for OMZP::gh
+
+# NVM - Node Version Manager
+# NVM 启动非常慢。这里只延迟加载它。
+# 更好的建议：改用 'fnm' (Fast Node Manager) 或 'voltm'。
+# 如果必须用 nvm，可以这样配置 lazy load (当输入 node, npm, nvm 时才加载)
+# 但 OMZ 的 nvm 插件会尝试自动处理，这里先用 turbo mode 加载插件
+zinit wait="1" lucid for OMZP::nvm
+
+# 3. 第三方插件
+
+# Zoxide (更好的 cd)
+# 需要系统已安装 zoxide 二进制
+if (( $+commands[zoxide] )); then
+    eval "$(zoxide init zsh)"
 fi
+
+# FZF
+# 如果通过系统安装了 fzf
+if (( $+commands[fzf] )); then
+    source <(fzf --zsh)
+fi
+
+# 辅助插件
+# 提醒你使用现有的 Alias，帮助养成肌肉记忆
+zinit wait lucid for MichaelAquilina/zsh-you-should-use
+
+# FZF-Tab (用 fzf 替换补全菜单)
+# 必须在 compinit 之后加载
+zinit wait lucid for Aloxaf/fzf-tab
+
+# --- FZF-TAB 配置 ---
+# 禁用 sort 当补全 git checkout 时
+zstyle ':completion:*:git-checkout:*' sort false
+# 设置描述格式
+zstyle ':completion:*:descriptions' format '[%d]'
+# 启用 ls 颜色
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+# 预览目录内容 (使用 eza)
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath'
+zstyle ':fzf-tab:complete:z:*' fzf-preview 'eza -1 --color=always $realpath'
+# 预览文件内容 (使用 bat) - 排除大文件
+zstyle ':fzf-tab:complete:*:*' fzf-preview 'bat --color=always --style=numbers --line-range=:500 {}'
+# Kill 命令预览进程详情
+zstyle ':completion:*:*:*:*:processes' command "ps -u $USER -o pid,user,comm -w -w"
+zstyle ':fzf-tab:complete:(kill|ps):argument-rest' fzf-preview '[[ $group == "[process ID]" ]] && ps --pid=$word -o cmd --no-headers -w -w'
+zstyle ':fzf-tab:complete:(kill|ps):argument-rest' fzf-flags --preview-window=down:3:wrap
+# --------------------
+
+# Syntax Highlighting & Autosuggestions
+# 根据 Zinit 最佳实践，这两个通常放在最后加载
+# fast-syntax-highlighting 取代 zsh-syntax-highlighting，性能更好
+zinit wait lucid for \
+    zdharma-continuum/fast-syntax-highlighting \
+    zsh-users/zsh-autosuggestions \
+    zsh-users/zsh-history-substring-search
+
+# 适配不同终端的按键映射
+bindkey "$terminfo[kcuu1]" history-substring-search-up
+bindkey "$terminfo[kcud1]" history-substring-search-down
+
+###
+# Theme: Starship
+###
+# 保持原有的 Starship 配置
+if (( $+commands[starship] )); then
+    eval "$(starship init zsh)"
+fi
+
+# [cite_start]载入内置的批量重命名工具 zmv [cite: 1]
+autoload -Uz zmv
+
+###
+# Custom Settings
+###
+
+# 加载自定义 Alias
+# Zinit 方式加载：作为 Snippet 加载，使用 wait'1' 确保在 OMZ 插件之后加载，防止 Alias 被覆盖
+if [[ -f "$HOME/.aliases" ]]; then
+    zinit ice wait"1" lucid
+    zinit snippet "$HOME/.aliases"
+fi
+
+# 你的远程会话信息显示逻辑
+if [[ -f "$HOME/.login_info.sh" ]]; then
+    bash "$HOME/.login_info.sh"
+fi
+
+# 修正补全相关配置
+ZSH_DISABLE_COMPFIX="true"
+COMPLETION_WAITING_DOTS="true"
+HIST_STAMPS="%b %e, %Y"
+
+# 加载补全系统 (Zinit 会自动处理，但有时候需要显式调用来应用某些设置)
+# zinit cdreplay -q
