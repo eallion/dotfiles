@@ -37,39 +37,74 @@ warn_rm() {
 }
 
 # File/Dir Operations (Eza/Ls)
+# 强制移除可能的函数或已有 alias，然后重建 alias（确保最后定义生效）
+for a in ls l ll la lx lS lt; do
+    if alias "$a" >/dev/null 2>&1; then
+        unalias "$a" 2>/dev/null
+    fi
+    if declare -f "$a" >/dev/null 2>&1; then
+        unset -f "$a" 2>/dev/null
+    fi
+done
+
 if command -v eza >/dev/null 2>&1; then
-    alias ls='eza'
+    unalias ls l ll la lx lS lt 2>/dev/null
     alias l='eza -lbF --git'
-    alias ll='eza -lbGF --git'
-    alias la='eza -lbhHigUmuSa --time-style=long-iso --git --color-scale'
-    alias lx='eza -lbhHigUmuSa@ --time-style=long-iso --git --color-scale'
     alias lS='eza -1'
+    alias la='eza -lbhHigUmuSa --time-style=long-iso --git --color-scale'
+    alias ll='eza -liangh --git'
+    alias ls='eza'
     alias lt='eza --tree --level=2'
+    alias lx='eza -lbhHigUmuSa@ --time-style=long-iso --git --color-scale'
 else
-    # Fallback to standard ls if eza is not available
+    alias l='ls -lbF'
+    alias lS='ls -1'
+    alias la='ls -lAh'
+    alias ll='ls -laF'
     alias ls='ls --color=auto'
-    alias ll='ls -alF'
-    alias la='ls -A'
-    alias l='ls -CF'
+    alias lt='find . -maxdepth 2 -type d'
+    alias lx='ls -lAh'
 fi
 
 # Cat Operations (Bat/Cat)
 if command -v bat >/dev/null 2>&1; then
-    alias cat='bat --paging=never'
+    alias cat='bat --paging=never -p'
+else
+    alias cat='cat'
 fi
 
+alias ...='../..'
+alias ....='../../..'
+alias .....='../../../..'
+alias ......='../../../../..'
+
+alias -- -='cd -'
+alias 1='cd -1'
+alias 2='cd -2'
+alias 3='cd -3'
+alias 4='cd -4'
+alias 5='cd -5'
+alias 6='cd -6'
+alias 7='cd -7'
+alias 8='cd -8'
+alias 9='cd -9'
+
 # General Aliases
-alias rm='warn_rm'
-alias kssh="kitten ssh"
-alias icat="kitten icat"
 alias c=clear
 alias cp="cp -iv"
+alias icat="kitten icat"
+alias kssh="kitten ssh"
+alias md='mkdir -p'
 alias mv="mv -iv"
-alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true)"
 alias python="python3"
+alias rd=rmdir
+alias rm='warn_rm'
 alias sqlite="sqlite3"
 alias ugz='tar -xzvf'
-alias grep='rg'
+alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true)"
+if command -v rg >/dev/null 2>&1; then
+    alias grep='rg'
+fi
 
 # Docker Aliases
 # (Preserved custom shortcuts not covered strictly by standard plugins)
@@ -113,3 +148,33 @@ alias dlf='docker logs -f'
 # Most git aliases are now provided by Zinit OMZP::git plugin.
 # Define only strictly custom overrides or additions here.
 alias g=git
+
+# alias vim='nvim' # 通过 setup.sh 添加
+
+# docker stats --no-stream 的增强版本，显示总内存使用和占主机总内存的百分比
+dsns() {
+    docker stats --no-stream --format "table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}" | awk -v host_total="$(awk '/MemTotal/ {print $2}' /proc/meminfo)" '
+    NR==1 {print $0; next} 
+    {
+        print $0;
+        if (match($0, /[0-9.]+[KMG]?i?B[ ]+\/[ ]+[0-9.]+[KMG]?i?B/)) {
+            str = substr($0, RSTART, RLENGTH);
+            split(str, parts, "/");
+            match(parts[1], /[0-9.]+/);
+            u_val = substr(parts[1], RSTART, RLENGTH);
+            u_unit = substr(parts[1], RSTART+RLENGTH);
+            gsub(/[ ]/, "", u_unit);
+            if (u_unit ~ /GiB/) u_val *= 1024;
+            else if (u_unit ~ /KiB/) u_val /= 1024;
+            else if (u_unit ~ /B$/ && u_unit !~ /MiB/ && u_unit !~ /KiB/) u_val /= (1024*1024);
+            u_sum += u_val;
+        }
+    } END {
+        host_total_mib = host_total / 1024;
+        if (host_total_mib > 0) 
+            printf "\nTotal Memory Usage: %.2f MiB (%.2f%% of Host Total)\n", u_sum, (u_sum / host_total_mib) * 100;
+        else 
+            printf "\nTotal Memory Usage: %.2f MiB\n", u_sum;
+    }'
+}
+alias dsns=dsns

@@ -4,7 +4,7 @@
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
     # SSH_CLIENT 格式通常为: <客户端IP> <本地端口> <远程端口>
     # 提取客户端 IP 地址
-    CLIENT_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+    CLIENT_IP=$(echo "$SSH_CLIENT" | awk '{print $1}')
     
     # 尝试设置时区，如果系统不支持 Asia/Shanghai，则保持默认
     # 使用 TZ 变量临时设置

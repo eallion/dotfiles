@@ -1,12 +1,11 @@
 {
-  "features": {
-    "containerd-snapshotter": true
-  },
   "log-driver": "json-file",
   "log-opts": {
     "max-size": "20m",
-    "max-file": "3"
+    "max-file": "5"
   },
-  "experimental": true,
+  "live-restore": true,
+  "max-concurrent-downloads": 3,
+  "max-concurrent-uploads": 5,
   "iptables": true
 }

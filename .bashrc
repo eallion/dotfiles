@@ -1,5 +1,6 @@
-# Amazon Q pre block. Keep at the top of this file.
-[[ -f "${HOME}/.local/share/amazon-q/shell/bashrc.pre.bash" ]] && builtin source "${HOME}/.local/share/amazon-q/shell/bashrc.pre.bash"
+# 此文件仅用于 Bash + Oh My Bash，在其他 Shell（如 Zsh）下直接跳过
+[ -z "$BASH_VERSION" ] && return
+
 # Enable the subsequent settings only in interactive sessions
 case $- in
   *i*) ;;
@@ -15,7 +16,7 @@ export OSH="$HOME/.oh-my-bash"
 
 # Set name of the theme to load. Optionally, if you set this to "random"
 # it'll load a random theme each time that oh-my-bash is loaded.
-OSH_THEME="powerline-multiline"
+OSH_THEME=""
 
 # If you set OSH_THEME to "random", you can ignore themes you don't like.
 # OMB_THEME_RANDOM_IGNORED=("powerbash10k" "wanelo")
@@ -166,6 +167,7 @@ source "$OSH"/oh-my-bash.sh
 # alias ohmybash="mate ~/.oh-my-bash"
 
 # Custom
+export EDITOR="vim"
 export HISTSIZE=10000
 export HISTFILESIZE=10000
 
@@ -173,28 +175,14 @@ export HISTFILESIZE=10000
 # 加载通用 Alias 文件
 [ -f ~/.aliases ] && source ~/.aliases
 
-# NVM Lazy Load
-# 仅当需要时加载 NVM，显著提升 Bash 启动速度
-export NVM_DIR="$HOME/.nvm"
-nvm() {
-    unset -f nvm
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    nvm "$@"
-}
-npm() {
-    unset -f npm
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    npm "$@"
-}
-node() {
-    unset -f node
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    node "$@"
-}
-
 # 你的远程会话信息显示逻辑
 if [[ -f "$HOME/.login_info.sh" ]]; then
     bash "$HOME/.login_info.sh"
+fi
+
+# Mise (Version Manager)
+if command -v mise &>/dev/null; then
+    eval "$(mise activate bash)"
 fi
 
 export LANG="en_US.UTF-8"

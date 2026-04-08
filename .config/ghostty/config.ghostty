@@ -1,0 +1,43 @@
+language = en
+
+theme = GitHub Dark Dimmed
+
+# 设置窗口宽度
+window-width = 131
+
+# 设置窗口高度
+window-height = 37
+
+# 开启 1.3.0 引入的原生滚动条
+scrollbar = system
+
+# 开启点击移动光标 (对应 Kitty 的部分功能)
+shell-integration-features = cursor,sudo,no-title
+
+# 针对 1.3.1 的修复，处理进度条样式
+progress-style = true
+
+# 剪贴板
+clipboard-write = allow
+clipboard-read = allow
+clipboard-trim-trailing-spaces = true
+clipboard-paste-protection =true 
+clipboard-paste-bracketed-safe = true
+
+# 复制
+copy-on-select = true
+
+# 字体
+font-family = JetBrains Maple Mono
+font-size = 11
+font-thicken = true
+font-thicken-strength = 255
+font-shaping-break = cursor
+
+# 自动更新
+auto-update = off
+
+keybind = ctrl+w=close_tab
+keybind = ctrl+shift+enter=new_split:right
+keybind = ctrl+alt+enter=new_split:down
+keybind = ctrl+shift+w=close_surface
