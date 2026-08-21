@@ -122,6 +122,7 @@ abbr --add dcip docker inspect --format="{{.NetworkSettings.IPAddress}}"
 abbr --add dlast "docker exec -it (docker ps -lq) bash"
 abbr --add dlogs docker logs -f
 abbr --add dlf docker logs -f
+abbr --add docker-compose docker compose
 abbr --add 1 cd -1
 abbr --add 2 cd -2
 abbr --add 3 cd -3
