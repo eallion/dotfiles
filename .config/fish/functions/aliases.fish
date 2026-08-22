@@ -151,7 +151,7 @@ abbr --add dsns "docker stats --no-stream --format \"table {{.ID}}\t{{.Name}}\t{
 # Command wrappers
 
 if type -q trash
-    abbr -add t trash
+    abbr --add t trash
 end
 
 if type -q rg
