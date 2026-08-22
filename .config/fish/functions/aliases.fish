@@ -133,6 +133,10 @@ abbr --add 7 cd -7
 abbr --add 8 cd -8
 abbr --add 9 cd -9
 
+if type -q trash
+    abbr -add t trash
+end
+
 if type -q rg
     abbr --add grep rg
 end
