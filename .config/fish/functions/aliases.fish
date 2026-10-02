@@ -288,8 +288,20 @@ function ugz
 end
 
 function up
+    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
+    echo "│ 1. APT Update                                                                │"
+    echo "└──────────────────────────────────────────────────────────────────────────────┘"
     sudo apt update; and sudo apt upgrade -y; and sudo apt autoremove; and sudo apt autoclean
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
+    echo "│ 2. Flatpak Update                                                            │"
+    echo "└──────────────────────────────────────────────────────────────────────────────┘"
     and type -q flatpak; and flatpak update -y
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
+    echo "│ 3. Mise Update                                                               │"
+    echo "└──────────────────────────────────────────────────────────────────────────────┘"
+    and type -q mise; and mise up -q
 end
 
 function warn_rm
