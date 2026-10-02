@@ -1,65 +1,122 @@
 # https://github.com/rime/home/wiki/CustomizationGuide # Rime 定制指南
 # https://github.com/LEOYoon-Tsaw/Rime_collections/blob/master/Rime_description.md # Schema.yaml 详解
+# encoding: utf-8
 
 patch:
-  punctuator/full_shape: # 自定义全角标点符号（覆盖默认设置）
-      "/" : "/"
-      "%" : "%"
-      "*" : "*"
-      "|" : "|"
-      "<": ["《", "<", "〈", "«", "‹"]
-      ">": ["》", ">", "〉", "»", "›"]
-      '\' : [ 、, '\', '·',＼ ]
+  # 引入自定义符号表与启用 / 快捷符号输入
+  punctuator/import_preset: mysymbols
+  recognizer/patterns/punct: "^/([0-9]0?|[A-Za-z]*)$"
 
+  # 自定义全角标点符号表（完整继承原生标点，融入用户个性化定制）
+  punctuator/full_shape:
+    " ": {commit: "　"}
+    "!": {commit: "！"}
+    "\"": {pair: ["“", "”"]}
+    "#": ["＃", "⌘"]
+    "$": ["￥", "$", "€", "£", "¥", "¢", "¤"]
+    "%": "%" # 用户定制：直接输出 %
+    "&": "＆"
+    "'": {pair: ["‘", "’"]}
+    "(": "（"
+    ")": "）"
+    "*": "*" # 用户定制：直接输出 *
+    "+": "＋"
+    ",": {commit: "，"}
+    "-": "－"
+    ".": {commit: "。"}
+    "/": ["/", "／", "÷"] # 用户定制：列表形式支持后续符号快捷输入
+    ":": {commit: "："}
+    ";": {commit: "；"}
+    "<": ["《", "<", "〈", "«", "‹"] # 用户定制
+    "=": "＝"
+    ">": ["》", ">", "〉", "»", "›"] # 用户定制
+    "?": {commit: "？"}
+    "@": ["＠", "☯"]
+    "[": ["「", "【", "〔", "［"]
+    "\\": ["、", "\\", "·", "＼"] # 用户定制
+    "]": ["」", "】", "〕", "］"]
+    "^": {commit: "……"}
+    "_": "——"
+    "`": "`" # 用户定制：反引号直接上屏
+    "{": ["『", "〖", "｛"]
+    "|": "|" # 用户定制：直接输出 |
+    "}": ["』", "〗", "｝"]
+    "~": "～"
+
+  # 自定义半角标点符号表（完整包含逗号句号及 Shift+数字键所有候选，解决标点丢失问题）
   punctuator/half_shape:
-      "/" : "/"
-      "%" : "%"
-      "*" : "*"
-      "|" : "|"
-      "<": ["《", "<", "〈", "«", "‹"]
-      ">": ["》", ">", "〉", "»", "›"]
-      '\' : [ 、, '\', '·',＼ ]
+    "!": {commit: "！"}
+    "\"": {pair: ["“", "”"]}
+    "#": "#"
+    "$": ["￥", "$", "€", "£", "¥", "¢", "¤"]
+    "%": "%" # 用户定制：直接输出 %
+    "&": "&"
+    "'": {pair: ["‘", "’"]}
+    "(": "（"
+    ")": "）"
+    "*": "*" # 用户定制：直接输出 *
+    "+": "+"
+    ",": {commit: "，"} # 保留中文逗号
+    "-": "-"
+    ".": {commit: "。"} # 保留中文句号
+    "/": ["/", "／", "÷"] # 用户定制：列表形式支持后续符号快捷输入
+    ":": {commit: "："}
+    ";": {commit: "；"}
+    "<": ["《", "<", "〈", "«", "‹"] # 用户定制
+    "=": "="
+    ">": ["》", ">", "〉", "»", "›"] # 用户定制
+    "?": {commit: "？"}
+    "@": "@"
+    "[": ["「", "【", "〔", "［"]
+    "\\": ["、", "\\", "·", "＼"] # 用户定制
+    "]": ["」", "】", "〕", "］"]
+    "^": {commit: "……"}
+    "_": "——"
+    "`": "`" # 用户定制：反引号直接上屏
+    "{": ["『", "〖", "｛"]
+    "|": "|" # 用户定制：直接输出 |
+    "}": ["』", "〗", "｝"]
+    "~": ["~", "～"]
 
-  punctuator/extended_charset: 1
-  
-  recognizer/patterns/reverse_lookup: # 关闭 ` 键的反查功能
-    'punctuator/full_shape/`': "`"
-    'punctuator/half_shape/`': "`"
+  # 关闭 ` 键的反查功能，并使反引号直接上屏
+  recognizer/patterns/reverse_lookup: ""
 
-  translator/enable_user_dict: false # 用户词典
-  translator/enable_completion: false # 逐码提示
-  translator/enable_sentence: false # 是否开启自动造句
-  # menu/alternative_select_labels: [ ①, ②, ③, ④, ⑤, ⑥, ⑦, ⑧, ⑨ ]  # 修改候选標籤
-  # menu/alternative_select_labels: [ ❶,❷,❷,❸,❹,❺,❻,❼,❽,❾,❿ ]  # 修改候选標籤
+  # 增广字符集设定（原 punctuator/extended_charset: 1 无效，现代规范写法为设置 switches 索引 2）
+  "switches/@2/reset": 1
+
+  # 基础输入习惯设定
+  translator/enable_user_dict: false # 固定词序，关闭用户词典
+  translator/enable_completion: false # 关闭逐码提示
+  translator/enable_sentence: false # 关闭自动造句
   menu/page_size: 5 # 每页候选词数量
-  style/horizontal: false      # false 为候选横排显示
-  style/display_tray_icon: false  # 是否显示托盘图标
-  # style/font_face: "Noto Sans SC"  # 字体名称，从记事本等处的系统字体对话框里能看到
-  # style/font_point: 14     # 字號，只认数字的，不认「五號」、「小五」这样的
   speller/auto_select: false # 取消四码自动上屏
 
-  # "switches/@0/reset": 1 # 1 默认英文状态，0 默认中文状态, Ubuntu Not Working
-  
+  # 快捷选词按键绑定（分号选第 2 候选，单引号选第 3 候选）
   "key_binder/bindings":
-    - { when: has_menu, accept: semicolon, send: 2 } # 分号选择第 2 候选词
-    - { when: has_menu, accept: apostrophe, send: 3 } # 单引号选择第 3 候选词
+    - { when: has_menu, accept: semicolon, send: 2 }
+    - { when: has_menu, accept: apostrophe, send: 3 }
 
+  # 滤镜
   engine/filters:
     - simplifier
     - uniquifier # 过滤重复候选项，依赖 simplifier
 
-  # 自定义短语 Custom_phrase.txt # Tab 不能用空格代替
+  # 挂载翻译器（移除未配置的 script_translator，挂载 custom_phrase）
   engine/translators:
     - punct_translator
     - reverse_lookup_translator
-    - script_translator
     - table_translator@custom_phrase
     - table_translator
-    
+
+  # 自定义短语配置（读取 custom_phrase.txt）
   custom_phrase:
-    dictionary: wubi86
+    dictionary: "" # 规范写法留空，不关联主词典
     user_dict: custom_phrase
     db_class: stabledb
-    enable_completion: false # 提前显示尚未输入完整码的字
-    enable_sentence: false # 是否开启自动造句
-    initial_quality: 1000 # 优先级，如果想要自定义的词排在前面，这个值尽量设大一点
+    enable_completion: false
+    enable_sentence: false
+    initial_quality: 1000 # 优先级设高，确保自定义词条排在前面
+
+  # 以下为平台前端选项说明：
+  # 1. style/* 样式选项在 Linux Fcitx5 下由系统及桌面主题控制，方案文件内不生效。
+  # 2. app_options 应用默认西文模式在 Linux 下已按官方规范配置于 fcitx5.custom.yaml 中。

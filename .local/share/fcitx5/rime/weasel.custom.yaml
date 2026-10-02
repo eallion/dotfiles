@@ -1,0 +1,62 @@
+# Weasel (Windows 小狼毫) 前端特定配置
+# encoding: utf-8
+
+patch:
+  # 候选框外观设置（仅在 Windows Weasel 前端生效）
+  "style/horizontal": false # false 为纵向候选，true 为横向候选
+  "style/display_tray_icon": false # 是否显示托盘图标
+
+  # 针对 Windows 特定应用程序（使用可执行文件名称）默认开启西文模式
+  # 终端
+  "app_options/ghostty.exe":
+    ascii_mode: true
+  "app_options/WindowsTerminal.exe":
+    ascii_mode: true
+  "app_options/cmd.exe":
+    ascii_mode: true
+  "app_options/powershell.exe":
+    ascii_mode: true
+  "app_options/pwsh.exe":
+    ascii_mode: true
+  "app_options/kitty.exe":
+    ascii_mode: true
+  "app_options/putty.exe":
+    ascii_mode: true
+  "app_options/Tabby.exe":
+    ascii_mode: true
+  "app_options/tabby.exe":
+    ascii_mode: true
+
+  # 编辑器与 IDE
+  "app_options/Code.exe":
+    ascii_mode: true
+  "app_options/Code - Insiders.exe":
+    ascii_mode: true
+  "app_options/Antigravity.exe":
+    ascii_mode: true
+  "app_options/antigravity.exe":
+    ascii_mode: true
+  "app_options/antigravity-ide.exe":
+    ascii_mode: true
+  "app_options/Antigravity-IDE.exe":
+    ascii_mode: true
+
+  # AI 工具与应用
+  "app_options/Claude.exe":
+    ascii_mode: true
+  "app_options/claude.exe":
+    ascii_mode: true
+  "app_options/claude-desktop.exe":
+    ascii_mode: true
+  "app_options/ChatGPT.exe":
+    ascii_mode: true
+  "app_options/chatgpt.exe":
+    ascii_mode: true
+  "app_options/Codex.exe":
+    ascii_mode: true
+  "app_options/codex.exe":
+    ascii_mode: true
+  "app_options/OpenCode.exe":
+    ascii_mode: true
+  "app_options/opencode.exe":
+    ascii_mode: true

@@ -1,0 +1,50 @@
+# Squirrel (macOS 鼠须管) 前端特定配置
+# encoding: utf-8
+
+patch:
+  # 针对 macOS 特定应用程序（使用 Bundle ID）默认开启西文模式
+  # 终端
+  "app_options/com.mitchellh.ghostty":
+    ascii_mode: true
+  "app_options/com.apple.Terminal":
+    ascii_mode: true
+  "app_options/com.googlecode.iterm2":
+    ascii_mode: true
+  "app_options/net.kovidgoyal.kitty":
+    ascii_mode: true
+  "app_options/org.alacritty":
+    ascii_mode: true
+  "app_options/com.github.wez.wezterm":
+    ascii_mode: true
+  "app_options/org.tabby":
+    ascii_mode: true
+
+  # 编辑器与 IDE
+  "app_options/com.microsoft.VSCode":
+    ascii_mode: true
+  "app_options/com.microsoft.VSCodeInsiders":
+    ascii_mode: true
+  "app_options/com.google.antigravity":
+    ascii_mode: true
+  "app_options/com.google.antigravity-ide":
+    ascii_mode: true
+  "app_options/com.google.Antigravity":
+    ascii_mode: true
+
+  # AI 工具与应用
+  "app_options/com.anthropic.claudefordesktop":
+    ascii_mode: true
+  "app_options/com.anthropic.claude-desktop":
+    ascii_mode: true
+  "app_options/com.openai.chat":
+    ascii_mode: true
+  "app_options/com.openai.codex":
+    ascii_mode: true
+  "app_options/codex":
+    ascii_mode: true
+  "app_options/com.opencode":
+    ascii_mode: true
+  "app_options/org.opencode":
+    ascii_mode: true
+  "app_options/opencode":
+    ascii_mode: true

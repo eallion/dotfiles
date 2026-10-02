@@ -1,0 +1,70 @@
+# Fcitx5-Rime (Linux / Ubuntu) 前端特定配置
+# encoding: utf-8
+
+patch:
+  # 针对特定应用程序默认开启西文（英文）模式
+  # 终端模拟器
+  "app_options/com.mitchellh.ghostty":
+    ascii_mode: true
+  "app_options/ghostty":
+    ascii_mode: true
+  "app_options/org.gnome.Ptyxis":
+    ascii_mode: true
+  "app_options/ptyxis":
+    ascii_mode: true
+  "app_options/kitty":
+    ascii_mode: true
+  "app_options/org.wezfurlong.wezterm":
+    ascii_mode: true
+  "app_options/Alacritty":
+    ascii_mode: true
+  "app_options/tabby":
+    ascii_mode: true
+  "app_options/Tabby":
+    ascii_mode: true
+
+  # 编辑器与 IDE
+  "app_options/code":
+    ascii_mode: true
+  "app_options/Code":
+    ascii_mode: true
+  "app_options/com.visualstudio.code":
+    ascii_mode: true
+  "app_options/code-oss":
+    ascii_mode: true
+  "app_options/antigravity":
+    ascii_mode: true
+  "app_options/Antigravity":
+    ascii_mode: true
+  "app_options/antigravity-ide":
+    ascii_mode: true
+  "app_options/Antigravity-IDE":
+    ascii_mode: true
+  "app_options/com.google.antigravity":
+    ascii_mode: true
+
+  # AI 工具与应用
+  "app_options/claude-desktop":
+    ascii_mode: true
+  "app_options/Claude":
+    ascii_mode: true
+  "app_options/claude":
+    ascii_mode: true
+  "app_options/com.anthropic.claudefordesktop":
+    ascii_mode: true
+  "app_options/chatgpt":
+    ascii_mode: true
+  "app_options/ChatGPT":
+    ascii_mode: true
+  "app_options/com.openai.chat":
+    ascii_mode: true
+  "app_options/codex":
+    ascii_mode: true
+  "app_options/Codex":
+    ascii_mode: true
+  "app_options/opencode":
+    ascii_mode: true
+  "app_options/OpenCode":
+    ascii_mode: true
+  "app_options/open-code":
+    ascii_mode: true
