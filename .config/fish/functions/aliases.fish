@@ -10,6 +10,7 @@ abbr --add 7 cd -7
 abbr --add 8 cd -8
 abbr --add 9 cd -9
 abbr --add c clear
+abbr --add di sudo dpkg -i
 abbr --add dsh npx @deepseek-ai/dsh web
 abbr --add gv ghostty --version
 abbr --add icat "kitten icat"
