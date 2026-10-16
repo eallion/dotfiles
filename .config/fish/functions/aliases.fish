@@ -9,13 +9,19 @@ abbr --add 6 cd -6
 abbr --add 7 cd -7
 abbr --add 8 cd -8
 abbr --add 9 cd -9
+abbr --add al sudo apt list
+abbr --add alr "sudo apt list | rg"
 abbr --add c clear
 abbr --add di sudo dpkg -i
 abbr --add dsh npx @deepseek-ai/dsh web
+abbr --add fl flatpak list
+abbr --add flr "flatpak list | rg"
 abbr --add gv ghostty --version
 abbr --add icat "kitten icat"
 abbr --add kssh "kitten ssh"
 abbr --add md mkdir -p
+abbr --add ml mise list
+abbr --add mlr "mise list | rg"
 abbr --add python python3
 abbr --add rd rmdir
 abbr --add sqlite sqlite3
