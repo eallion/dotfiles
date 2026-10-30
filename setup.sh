@@ -366,7 +366,7 @@ install_cli_tools() {
     fi
     
     if [[ " ${final_tools[*]} " =~ " fd-find " ]] && command -v fdfind &> /dev/null && ! command -v fd &> /dev/null; then
-        $SUDO ln -s "$(command -v fdfind)" /usr/local/bin/fd
+        $SUDO ln -sf "$(command -v fdfind)" /usr/local/bin/fd
     fi
 }
 
@@ -431,6 +431,68 @@ install_fisher_plugins() {
         echo "✔ 所有 fisher 插件均已安装。"
     fi
 }
+
+###
+# 系统与虚拟化/容器环境检测
+###
+VIRT_TYPE="none"
+IS_PVE_LXC=false
+ENV_DESC="物理机 (Bare Metal)"
+DISTRO_ID="unknown"
+DISTRO_NAME="Linux"
+DISTRO_VERSION="unknown"
+DISTRO_MAJOR=0
+IS_MODERN_SYSTEM=false
+
+detect_system_info() {
+    # 1. 检测虚拟化 / 容器环境
+    if command -v systemd-detect-virt &> /dev/null; then
+        VIRT_TYPE=$(systemd-detect-virt 2>/dev/null || echo "none")
+    fi
+
+    if [[ "$VIRT_TYPE" == "lxc" ]] || [[ -f /run/systemd/container && $(cat /run/systemd/container 2>/dev/null) == "lxc" ]] || grep -qa 'container=lxc' /proc/1/environ 2>/dev/null; then
+        VIRT_TYPE="lxc"
+        # 进一步检测是否为 Proxmox VE (PVE) LXC:
+        # PVE 宿主机内核在 uname -r 或 /proc/version 中包含 -pve
+        if uname -r | grep -qi "pve" || grep -qi "pve" /proc/version 2>/dev/null; then
+            IS_PVE_LXC=true
+            ENV_DESC="Proxmox VE (PVE) LXC 容器"
+        else
+            ENV_DESC="LXC 容器"
+        fi
+    elif [[ "$VIRT_TYPE" == "docker" ]] || [ -f /.dockerenv ]; then
+        ENV_DESC="Docker 容器"
+    elif grep -qi "microsoft" /proc/version 2>/dev/null; then
+        VIRT_TYPE="wsl"
+        ENV_DESC="Windows WSL 环境"
+    elif [[ "$VIRT_TYPE" != "none" ]]; then
+        ENV_DESC="虚拟机 ($VIRT_TYPE)"
+    fi
+
+    # 2. 检测发行版与版本
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO_ID="${ID:-unknown}"
+        DISTRO_NAME="${NAME:-Linux}"
+        DISTRO_VERSION="${VERSION_ID:-0}"
+    elif command -v lsb_release &> /dev/null; then
+        DISTRO_ID=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
+        DISTRO_NAME=$(lsb_release -ds)
+        DISTRO_VERSION=$(lsb_release -sr)
+    fi
+
+    DISTRO_MAJOR=$(echo "$DISTRO_VERSION" | sed -E 's/^([0-9]+).*/\1/')
+    if ! [[ "$DISTRO_MAJOR" =~ ^[0-9]+$ ]]; then
+        DISTRO_MAJOR=0
+    fi
+
+    # 现代化系统判定：Ubuntu >= 22.04（包括 24.04, 26.04+），Debian >= 12（包括 13+）
+    if [[ "$DISTRO_ID" == "ubuntu" && "$DISTRO_MAJOR" -ge 22 ]] || \
+       [[ "$DISTRO_ID" == "debian" && "$DISTRO_MAJOR" -ge 12 ]]; then
+        IS_MODERN_SYSTEM=true
+    fi
+}
+detect_system_info
 
 ###
 # 第一步：用户检查与处理（Root 用户处理）
@@ -530,6 +592,8 @@ if [[ -z "$INSTALL_SHELL" ]]; then
 fi
 
 echo "=== 正在开始配置 $INSTALL_SHELL 环境 ==="
+echo "▶ 操作系统: $DISTRO_NAME $DISTRO_VERSION"
+echo "▶ 运行环境: $ENV_DESC"
 echo "脚本将自动备份你的配置文件"
 echo "------------------------------"
 
@@ -1171,7 +1235,79 @@ else
     echo "⏭ 跳过 Ghostty 配置。"
 fi
 
-# Docker 守护进程配置
+###
+# Docker 与 Docker 用户组配置
+###
+echo "=== Docker 配置 ==="
+
+# 1. 检查或安装 Docker
+if command -v docker &> /dev/null; then
+    echo "✔ 检测到 Docker 已安装: $(docker --version 2>/dev/null | head -n1)"
+else
+    if [[ "$IS_PVE_LXC" == true ]]; then
+        echo "ℹ 提示: 当前处于 PVE LXC 容器环境。"
+        echo "  在 PVE LXC 中运行 Docker 需要在 PVE 宿主机开启此容器的 Nesting (嵌套) 与 keyctl。"
+    fi
+
+    case "$PROFILE" in
+        minimal) INSTALL_DOCKER="N" ;;
+        full|server) INSTALL_DOCKER="Y" ;;
+        *)
+            printf "未检测到 Docker，是否安装 Docker? (y/N) "
+            if read -t 15 INSTALL_DOCKER < /dev/tty; then :; else INSTALL_DOCKER="N"; echo ""; fi
+            ;;
+    esac
+
+    if [[ "$INSTALL_DOCKER" =~ ^[Yy]$ ]]; then
+        echo "▶ 正在使用官方脚本安装 Docker..."
+        TEMP_DOCKER_SH=$(mktemp)
+        TEMP_FILES+=("$TEMP_DOCKER_SH")
+        if curl -fsSL https://get.docker.com -o "$TEMP_DOCKER_SH"; then
+            $SUDO sh "$TEMP_DOCKER_SH" || echo "⚠ Docker 安装脚本执行异常，后续配置将继续尝试。"
+            rm -f "$TEMP_DOCKER_SH"
+            if command -v docker &> /dev/null; then
+                echo "✔ Docker 安装成功: $(docker --version 2>/dev/null | head -n1)"
+            else
+                echo "❌ Docker 安装可能未完成。"
+            fi
+        else
+            echo "❌ 下载 Docker 官方安装脚本失败。"
+        fi
+    else
+        echo "⏭ 跳过 Docker 安装。"
+    fi
+fi
+
+# 2. Docker 用户组配置（无论系统有无安装 Docker，无论是否安装，均询问）
+TARGET_USER="${CURRENT_USER:-$(whoami)}"
+if [[ "$TARGET_USER" == "root" && -n "$SUDO_USER" ]]; then
+    TARGET_USER="$SUDO_USER"
+fi
+
+if [[ "$TARGET_USER" != "root" ]]; then
+    if id -nG "$TARGET_USER" 2>/dev/null | grep -qw "docker"; then
+        echo "✔ 用户 $TARGET_USER 已在 docker 用户组中。"
+    else
+        printf "是否添加用户 %s 到 docker 用户组 (免 sudo 运行 docker)? (y/N) " "$TARGET_USER"
+        if read -t 15 ADD_DOCKER_GRP < /dev/tty; then :; else ADD_DOCKER_GRP="N"; echo ""; fi
+
+        if [[ "$ADD_DOCKER_GRP" =~ ^[Yy]$ ]]; then
+            if ! getent group docker > /dev/null 2>&1; then
+                echo "▶ 创建 docker 用户组..."
+                $SUDO groupadd docker
+            fi
+            echo "▶ 添加用户 $TARGET_USER 到 docker 组..."
+            $SUDO usermod -aG docker "$TARGET_USER"
+            echo "✔ 用户 $TARGET_USER 已成功添加到 docker 组 (注销并重新登录终端后生效)。"
+        else
+            echo "⏭ 跳过添加 docker 用户组。"
+        fi
+    fi
+else
+    echo "ℹ 当前为 root 用户，无需配置普通用户 docker 组免 sudo。"
+fi
+
+# 3. Docker 守护进程配置 (daemon.json)
 case "$PROFILE" in
     minimal) INSTALL_DOCKER_CONFIG="N" ;;
     full|server) INSTALL_DOCKER_CONFIG="Y" ;;
@@ -1196,8 +1332,6 @@ if [[ "$INSTALL_DOCKER_CONFIG" =~ ^[Yy]$ ]]; then
     if [[ -n "$TEMP_JSON" ]] && [[ -s "$TEMP_JSON" ]]; then
         if [ -f "/etc/docker/daemon.json" ]; then
             echo "ℹ 发现现有 daemon.json，正在合并配置..."
-            # 使用 jq 合并配置 (现有配置 * 远程配置 = 远程覆盖现有)
-            # 注意: 这里的 merge 策略是远程覆盖本地冲突项，但保留本地独有项
             if command -v jq &> /dev/null; then
                 $SUDO cp /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%Y%m%d_%H%M%S)
                 $SUDO jq -s '.[0] * .[1]' /etc/docker/daemon.json "$TEMP_JSON" | $SUDO tee "$TEMP_JSON.merged" > /dev/null
@@ -1219,7 +1353,7 @@ if [[ "$INSTALL_DOCKER_CONFIG" =~ ^[Yy]$ ]]; then
         echo "⚠ 无法下载 Docker 配置，跳过。"
     fi
 else
-    echo "⏭ 跳过 Docker 配置。"
+    echo "⏭ 跳过 Docker 守护进程配置。"
 fi
 
 echo "------------------------------"
@@ -1240,29 +1374,13 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
     echo "▶ 开始配置 SSH 服务..."
 
     # 检查 SSH 服务状态
-    if ! systemctl is-active --quiet ssh; then
+    if ! systemctl is-active --quiet ssh && ! systemctl is-active --quiet sshd; then
         echo "▶ 启用 SSH 服务..."
-        $SUDO systemctl enable ssh
-        $SUDO systemctl start ssh
+        $SUDO systemctl enable ssh 2>/dev/null || $SUDO systemctl enable sshd 2>/dev/null || true
+        $SUDO systemctl start ssh 2>/dev/null || $SUDO systemctl start sshd 2>/dev/null || true
     fi
 
-    # 检测系统版本以决定配置方式
-    if command -v lsb_release &> /dev/null; then
-        DISTRO=$(lsb_release -si)
-        VERSION=$(lsb_release -sr)
-    else
-        # 回退方法
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            DISTRO=$ID
-            VERSION=$VERSION_ID
-        else
-            DISTRO="unknown"
-            VERSION="unknown"
-        fi
-    fi
-
-    echo "▶ 检测到系统: $DISTRO $VERSION"
+    echo "▶ 系统版本: $DISTRO_NAME $DISTRO_VERSION"
 
     # 选择 SSH 端口
     echo "请选择 SSH 端口配置方式:"
@@ -1273,6 +1391,7 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
 
     case $PORT_CHOICE in
         1)
+            tput cnorm 2>/dev/null || true
             printf "请输入 SSH 端口 (22-65535): "
             read -t 30 SSH_PORT < /dev/tty
             if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [ "$SSH_PORT" -lt 22 ] || [ "$SSH_PORT" -gt 65535 ]; then
@@ -1298,26 +1417,149 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
     printf "是否禁止密码登录 (推荐使用密钥登录)? (y/N) "
     if read -t 10 DISABLE_PASSWORD_AUTH < /dev/tty; then :; else DISABLE_PASSWORD_AUTH="N"; echo ""; fi
 
-    SSH_KEY=""
-    if [[ "$DISABLE_PASSWORD_AUTH" =~ ^[Yy]$ ]]; then
-        echo "请粘贴你的 SSH 公钥 (以 ssh-rsa 或 ssh-ed25519 开头):"
-        echo "提示: 你可以在本地运行 'cat ~/.ssh/id_rsa.pub' 或 'cat ~/.ssh/id_ed25519.pub' 获取公钥"
-        read -t 60 SSH_KEY < /dev/tty
-        if [[ -z "$SSH_KEY" ]] || ! [[ "$SSH_KEY" =~ ^ssh-(rsa|ed25519|ecdsa) ]]; then
-            echo "❌ 无效的 SSH 公钥，跳过密钥配置"
-            SSH_KEY=""
+    # SSH 公钥配置交互（提供 3 种选择）
+    SSH_KEY_CONTENT=""
+    echo ""
+    echo "请选择 SSH 公钥配置方式:"
+    echo "  1) 从 GitHub 导入公钥"
+    echo "  2) 本机生成公钥私钥对 (生成后需备份私钥)"
+    echo "  3) 手动粘贴公钥"
+    echo "  4) 跳过公钥配置"
+    tput cnorm 2>/dev/null || true
+    printf "请选择 (1/2/3/4，默认 4): "
+    if read -t 30 SSH_KEY_CHOICE < /dev/tty; then :; else SSH_KEY_CHOICE="4"; echo ""; fi
+
+    case "$SSH_KEY_CHOICE" in
+        1)
+            echo "▶ 方式一：从 GitHub 导入公钥"
+            tput cnorm 2>/dev/null || true
+            printf "请输入 GitHub 用户名: "
+            read -r GITHUB_USERNAME < /dev/tty
+            if [[ -z "$GITHUB_USERNAME" ]]; then
+                echo "❌ GitHub 用户名不能为空，跳过公钥配置。"
+            else
+                echo "▶ 正在从 https://github.com/${GITHUB_USERNAME}.keys 获取公钥..."
+                GH_KEYS=$(curl -fsSL "https://github.com/${GITHUB_USERNAME}.keys" 2>/dev/null || true)
+                VALID_KEYS=$(echo "$GH_KEYS" | grep -E '^(ssh-(rsa|ed25519)|ecdsa-|sk-)' || true)
+                if [[ -n "$VALID_KEYS" ]]; then
+                    KEY_COUNT=$(echo "$VALID_KEYS" | grep -c -E '^(ssh-(rsa|ed25519)|ecdsa-|sk-)')
+                    echo "✔ 成功从 GitHub 获取到 $KEY_COUNT 个有效公钥。"
+                    SSH_KEY_CONTENT="$VALID_KEYS"
+                else
+                    echo "❌ 未能在 GitHub 上找到用户 $GITHUB_USERNAME 的有效公钥。"
+                fi
+            fi
+            ;;
+        2)
+            echo "▶ 方式二：生成公钥与私钥对"
+            TEMP_KEY_DIR=$(mktemp -d)
+            TEMP_FILES+=("$TEMP_KEY_DIR")
+            KEY_PATH="$TEMP_KEY_DIR/id_ed25519"
+            KEY_COMMENT="${TARGET_USER}@$(hostname)-$(date +%Y%m%d)"
+            if ssh-keygen -t ed25519 -C "$KEY_COMMENT" -N "" -f "$KEY_PATH" > /dev/null 2>&1; then
+                SSH_KEY_CONTENT=$(cat "${KEY_PATH}.pub")
+                echo ""
+                echo "============================================================"
+                echo "⚠️  私钥已生成！请务必立即复制并保存以下私钥："
+                echo "   （将其保存至本地计算机，例如 ~/.ssh/id_ed25519，权限设为 600）"
+                echo "============================================================"
+                cat "$KEY_PATH"
+                echo "============================================================"
+                echo ""
+                tput cnorm 2>/dev/null || true
+                printf "请确认已备份私钥后按回车键继续...: "
+                read -r _ < /dev/tty
+                shred -u "$KEY_PATH" 2>/dev/null || rm -f "$KEY_PATH"
+                rm -rf "$TEMP_KEY_DIR"
+                echo "✔ 私钥备份确认完成，公钥已就绪。"
+            else
+                echo "❌ 密钥对生成失败。"
+            fi
+            ;;
+        3)
+            echo "▶ 方式三：手动粘贴公钥"
+            echo "提示: 公钥以 ssh-ed25519, ssh-rsa, ecdsa-* 等开头"
+            tput cnorm 2>/dev/null || true
+            printf "SSH 公钥: "
+            read -r SSH_KEY_INPUT < /dev/tty
+            if [[ -z "$SSH_KEY_INPUT" ]] || ! [[ "$SSH_KEY_INPUT" =~ ^(ssh-rsa|ssh-ed25519|ecdsa-|sk-) ]]; then
+                echo "❌ 无效的 SSH 公钥格式，跳过公钥配置。"
+            else
+                SSH_KEY_CONTENT="$SSH_KEY_INPUT"
+                echo "✔ 公钥录入成功。"
+            fi
+            ;;
+        *)
+            echo "⏭ 跳过公钥配置。"
+            ;;
+    esac
+
+    # 写入公钥与设置权限 (必须保证 ~/.ssh 700, authorized_keys 600)
+    if [[ -n "$SSH_KEY_CONTENT" ]]; then
+        echo "▶ 写入公钥并设置目录与文件权限..."
+        TARGET_USERS_LIST=()
+        if [[ "$EUID" -eq 0 ]]; then
+            TARGET_USERS_LIST+=("root")
+            if [[ -n "$USERNAME" && "$USERNAME" != "root" ]]; then
+                TARGET_USERS_LIST+=("$USERNAME")
+            fi
+        else
+            TARGET_USERS_LIST+=("$CURRENT_USER")
+            if [[ "$DISABLE_ROOT_SSH" != "Y" && "$DISABLE_ROOT_SSH" != "y" ]]; then
+                TARGET_USERS_LIST+=("root")
+            fi
+        fi
+
+        for u in "${TARGET_USERS_LIST[@]}"; do
+            local u_home=""
+            if [[ "$u" == "root" ]]; then
+                u_home="/root"
+            else
+                u_home=$(eval echo "~$u")
+            fi
+
+            if [[ -d "$u_home" ]]; then
+                $SUDO mkdir -p "$u_home/.ssh"
+                AUTH_KEYS="$u_home/.ssh/authorized_keys"
+
+                if ! $SUDO test -f "$AUTH_KEYS"; then
+                    $SUDO touch "$AUTH_KEYS"
+                fi
+
+                while IFS= read -r key_line; do
+                    [[ -z "$key_line" ]] && continue
+                    if ! $SUDO grep -Fxq "$key_line" "$AUTH_KEYS" 2>/dev/null; then
+                        echo "$key_line" | $SUDO tee -a "$AUTH_KEYS" > /dev/null
+                    fi
+                done <<< "$SSH_KEY_CONTENT"
+
+                $SUDO chmod 700 "$u_home/.ssh"
+                $SUDO chmod 600 "$AUTH_KEYS"
+                if [[ "$u" != "root" ]]; then
+                    $SUDO chown -R "$u:$u" "$u_home/.ssh"
+                else
+                    $SUDO chown -R root:root "$u_home/.ssh"
+                fi
+                echo "✔ 用户 $u: ~/.ssh (权限 700) 与 authorized_keys (权限 600) 设置完成"
+            fi
+        done
+    else
+        if [[ "$DISABLE_PASSWORD_AUTH" =~ ^[Yy]$ ]]; then
+            echo "⚠️  警告: 未配置任何有效 SSH 公钥！为防止锁在服务器外，自动保持密码登录开启。"
             DISABLE_PASSWORD_AUTH="N"
         fi
     fi
 
-    # 根据系统版本选择配置方式
-    if [[ "$DISTRO" == "Debian" && "$VERSION" =~ ^(12|13)$ ]] || [[ "$DISTRO" == "Ubuntu" && "$VERSION" =~ ^(22|24) ]]; then
-        # 现代系统使用 sshd_config.d/
-        echo "▶ 使用现代配置方式 (sshd_config.d/)..."
+    # 判定是否使用现代化配置方式 (sshd_config.d/)
+    USE_SSHD_CONFIG_D=false
+    if [ -d /etc/ssh/sshd_config.d ] || [[ "$IS_MODERN_SYSTEM" == true ]] || grep -q 'Include /etc/ssh/sshd_config.d/' /etc/ssh/sshd_config 2>/dev/null; then
+        USE_SSHD_CONFIG_D=true
+    fi
 
+    if [[ "$USE_SSHD_CONFIG_D" == true ]]; then
+        echo "▶ 使用现代化配置方式 (/etc/ssh/sshd_config.d/)..."
         $SUDO mkdir -p /etc/ssh/sshd_config.d
 
-        # 创建自定义配置
         CONFIG_FILE="/etc/ssh/sshd_config.d/99-custom.conf"
         cat << EOF | $SUDO tee "$CONFIG_FILE" > /dev/null
 # Custom SSH configuration added by dotfiles setup
@@ -1335,68 +1577,69 @@ PubkeyAuthentication yes
 EOF
         fi
 
-        # 设置正确的权限
         $SUDO chmod 644 "$CONFIG_FILE"
 
+        # 确保主配置文件包含 Include 指令
+        if [ -f /etc/ssh/sshd_config ] && ! grep -q 'Include /etc/ssh/sshd_config.d/\*.conf' /etc/ssh/sshd_config; then
+            echo "Include /etc/ssh/sshd_config.d/*.conf" | $SUDO tee -a /etc/ssh/sshd_config > /dev/null
+        fi
     else
-        # 传统系统直接修改 sshd_config
-        echo "▶ 使用传统配置方式 (直接修改 sshd_config)..."
-
+        echo "▶ 使用传统配置方式 (直接修改 /etc/ssh/sshd_config)..."
         SSHD_CONFIG="/etc/ssh/sshd_config"
-
-        # 备份原配置
         $SUDO cp "$SSHD_CONFIG" "${SSHD_CONFIG}.bak.$(date +%Y%m%d_%H%M%S)"
 
-        # 修改端口
         $SUDO sed -i "s/^#*Port .*/Port $SSH_PORT/" "$SSHD_CONFIG"
         if ! grep -q "^Port $SSH_PORT" "$SSHD_CONFIG"; then
             echo "Port $SSH_PORT" | $SUDO tee -a "$SSHD_CONFIG" > /dev/null
         fi
 
-        # 禁用 root 登录
         if [[ "$DISABLE_ROOT_SSH" =~ ^[Yy]$ ]]; then
             $SUDO sed -i 's/^#*PermitRootLogin .*/PermitRootLogin no/' "$SSHD_CONFIG"
         fi
 
-        # 禁用密码认证
         if [[ "$DISABLE_PASSWORD_AUTH" =~ ^[Yy]$ ]]; then
             $SUDO sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' "$SSHD_CONFIG"
             $SUDO sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' "$SSHD_CONFIG"
         fi
     fi
 
-    # 配置 SSH 密钥（如果提供了）
-    if [[ -n "$SSH_KEY" ]]; then
-        echo "▶ 配置 SSH 公钥..."
-        $SUDO mkdir -p /root/.ssh
-        echo "$SSH_KEY" | $SUDO tee /root/.ssh/authorized_keys > /dev/null
-        $SUDO chmod 600 /root/.ssh/authorized_keys
-        $SUDO chmod 700 /root/.ssh
-
-        # 为当前用户也配置（如果不是 root）
-        if [[ "$EUID" -ne 0 ]]; then
-            mkdir -p ~/.ssh
-            echo "$SSH_KEY" >> ~/.ssh/authorized_keys
-            chmod 600 ~/.ssh/authorized_keys
-            chmod 700 ~/.ssh
-        fi
+    # 处理 Ubuntu 22.10 / 24.04 / 26.04+ 及现代系统的 systemd ssh.socket
+    if systemctl is-active --quiet ssh.socket 2>/dev/null || systemctl is-enabled --quiet ssh.socket 2>/dev/null; then
+        echo "▶ 检测到 systemd ssh.socket 机制，配置 socket 监听端口..."
+        $SUDO mkdir -p /etc/systemd/system/ssh.socket.d
+        cat << EOF | $SUDO tee /etc/systemd/system/ssh.socket.d/listen.conf > /dev/null
+[Socket]
+ListenStream=
+ListenStream=$SSH_PORT
+EOF
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl restart ssh.socket 2>/dev/null || true
     fi
 
     # 重启 SSH 服务
     echo "▶ 重启 SSH 服务..."
-    $SUDO systemctl restart ssh
+    if systemctl list-unit-files 2>/dev/null | grep -q "^ssh\.service"; then
+        $SUDO systemctl restart ssh 2>/dev/null || true
+    elif systemctl list-unit-files 2>/dev/null | grep -q "^sshd\.service"; then
+        $SUDO systemctl restart sshd 2>/dev/null || true
+    fi
 
-    # 测试 SSH 连接
-    echo "▶ 测试 SSH 连接 (端口: $SSH_PORT)..."
-    if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p "$SSH_PORT" localhost echo "SSH 连接测试成功" 2>/dev/null; then
-        echo "✔ SSH 连接测试通过！"
+    # 验证端口监听
+    echo "▶ 检查 SSH 服务端口监听状态 (端口: $SSH_PORT)..."
+    sleep 1
+    PORT_ACTIVE=false
+    if command -v ss &>/dev/null; then
+        if ss -tln | grep -q ":$SSH_PORT "; then PORT_ACTIVE=true; fi
+    fi
+    if [[ "$PORT_ACTIVE" == false ]] && timeout 3 bash -c "</dev/tcp/127.0.0.1/$SSH_PORT" 2>/dev/null; then
+        PORT_ACTIVE=true
+    fi
+
+    if [[ "$PORT_ACTIVE" == true ]]; then
+        echo "✔ SSH 端口 $SSH_PORT 已正常处于监听状态！"
     else
-        echo "⚠ SSH 连接测试失败！"
-        echo "   可能的原因:"
-        echo "   • 端口 $SSH_PORT 未正确配置"
-        echo "   • 防火墙阻止了连接"
-        echo "   • SSH 服务未正确重启"
-        echo "   请通过服务器控制台检查并恢复配置。"
+        echo "⚠ 提示: 端口 $SSH_PORT 尚未检测到连接响应（可能受防火墙或异步启动影响）。"
+        echo "   建议在保持当前会话的同时，新开窗口测试连接。"
     fi
 
     # 显示配置结果
@@ -1416,9 +1659,8 @@ EOF
     fi
     echo ""
     echo "⚠️  重要提醒:"
-    echo "   • 请测试新配置是否正常工作后再关闭当前会话"
-    echo "   • 测试命令: ssh -p $SSH_PORT $(whoami)@localhost"
-    echo "   • 如果连接失败，可以通过控制台恢复配置"
+    echo "   • 请务必在新终端测试新配置能否正常连接后再关闭当前会话！"
+    echo "   • 测试命令: ssh -p $SSH_PORT $(whoami)@<服务器IP>"
     echo "------------------------------"
 
 else
@@ -1443,6 +1685,24 @@ case "$PROFILE" in
 esac
 
 if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
+    # PVE LXC 环境检测与提示
+    if [[ "$IS_PVE_LXC" == true ]]; then
+        echo "ℹ 检测到当前处于 PVE LXC 容器环境。"
+        if ! $SUDO iptables -L -n &>/dev/null; then
+            echo "⚠ 当前容器环境未检测到可用的内核 iptables/netfilter 模块。"
+            echo "  在非特权 LXC 容器中强制启用 UFW 可能会导致启动失败或网络中断。"
+            echo "  推荐直接在 PVE 宿主机或 PVE 管理界面的防火墙规则中进行防护。"
+            printf "是否仍要尝试在容器内配置 UFW? (y/N) "
+            if read -t 10 FORCE_UFW < /dev/tty; then :; else FORCE_UFW="N"; echo ""; fi
+            if ! [[ "$FORCE_UFW" =~ ^[Yy]$ ]]; then
+                INSTALL_UFW="N"
+                echo "⏭ 已针对 PVE LXC 环境安全跳过 UFW。"
+            fi
+        fi
+    fi
+fi
+
+if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
     if command -v ufw &>/dev/null; then
         echo "✔ UFW 已安装，跳过安装。"
     else
@@ -1463,10 +1723,10 @@ if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
     fi
     
     # 启用 UFW
-    $SUDO ufw --force enable
-    echo "✔ UFW 防火墙已安装并启用"
+    $SUDO ufw --force enable || echo "⚠ UFW 启用出现警告，请检查内核模块支持"
+    echo "✔ UFW 防火墙已配置完成"
     echo "   • 默认策略: 禁止所有入站流量，允许所有出站流量"
-    echo "   • 已允许: SSH 访问"
+    echo "   • 已允许端口: ${SSH_PORT:-22}/tcp"
 else
     echo "⏭ 跳过 UFW 安装。"
 fi
@@ -1483,29 +1743,9 @@ case "$PROFILE" in
 esac
 
 if [[ "$INSTALL_UFW_DOCKER" =~ ^[Yy]$ ]]; then
-    docker_available=false
-    if command -v docker &> /dev/null; then
-        docker_available=true
+    if ! command -v docker &> /dev/null; then
+        echo "⏭ 未检测到 Docker，跳过 UFW Docker 安装。"
     else
-        printf "❌ 未检测到 Docker，是否现在安装 Docker? (y/N) "
-        if read -t 10 INSTALL_DOCKER < /dev/tty; then :; else INSTALL_DOCKER="N"; echo ""; fi
-        
-        if [[ "$INSTALL_DOCKER" =~ ^[Yy]$ ]]; then
-            echo "▶ 正在安装 Docker..."
-            curl -fsSL https://get.docker.com -o get-docker.sh
-            $SUDO sh get-docker.sh
-            if command -v docker &> /dev/null; then
-                echo "✔ Docker 安装成功"
-                docker_available=true
-            else
-                echo "❌ Docker 安装失败"
-            fi
-        else
-            echo "⏭ 跳过 Docker 安装"
-        fi
-    fi
-    
-    if [[ "$docker_available" == true ]]; then
         echo "▶ 正在安装 UFW Docker..."
         
         # 下载 ufw-docker 脚本
@@ -1535,14 +1775,12 @@ EOF
         
         # 重新加载 UFW
         if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]] || command -v ufw &> /dev/null; then
-            $SUDO ufw reload
+            $SUDO ufw reload 2>/dev/null || true
         fi
         
         echo "✔ UFW Docker 已安装"
         echo "   • 用法: ufw-docker allow <service_name>"
         echo "   • 示例: ufw-docker allow nginx"
-    else
-        echo "⏭ 跳过 UFW Docker 安装。"
     fi
 else
     echo "⏭ 跳过 UFW Docker 安装。"
@@ -1560,17 +1798,35 @@ case "$PROFILE" in
 esac
 
 if [[ "$INSTALL_FAIL2BAN" =~ ^[Yy]$ ]]; then
+    # PVE LXC 环境提示
+    if [[ "$IS_PVE_LXC" == true ]]; then
+        if ! $SUDO iptables -L -n &>/dev/null; then
+            echo "⚠ 提示: 当前 PVE LXC 容器环境受限，Fail2ban 在无内核 netfilter 权限时将无法生效。"
+        fi
+    fi
+
     if command -v fail2ban-client &>/dev/null; then
         echo "✔ Fail2ban 已安装，跳过安装。"
     else
         echo "▶ 正在安装 Fail2ban..."
-        $SUDO apt-get install -y fail2ban
+        $SUDO apt-get install -y fail2ban python3-systemd 2>/dev/null || $SUDO apt-get install -y fail2ban
     fi
     
     echo "▶ 配置 Fail2ban..."
     
+    # 现代化系统 (如 Debian 12/13, Ubuntu 24.04/26.04) 默认无 rsyslog (/var/log/auth.log 不存在)
+    # 此时应使用 systemd 后端
+    FAIL2BAN_BACKEND_CONF=""
+    if [ ! -f /var/log/auth.log ]; then
+        FAIL2BAN_BACKEND_CONF="backend = systemd"
+    else
+        FAIL2BAN_BACKEND_CONF="logpath = /var/log/auth.log"
+    fi
+
+    FAIL2BAN_PORT="${SSH_PORT:-ssh}"
+
     # 创建本地配置文件
-    cat << 'EOF' | $SUDO tee /etc/fail2ban/jail.local > /dev/null
+    cat << EOF | $SUDO tee /etc/fail2ban/jail.local > /dev/null
 [DEFAULT]
 # 禁用时间（秒）: 30 分钟
 bantime = 1800
@@ -1578,23 +1834,19 @@ bantime = 1800
 findtime = 600
 # 在 findtime 内最大失败次数
 maxretry = 5
-# 邮件通知（可选，需要配置 sendmail）
-# destemail = your-email@example.com
-# action = %(action_mwl)s
 
 [sshd]
 enabled = true
-port = ssh
-# 如果使用自定义 SSH 端口，修改上面的 port 值
-logpath = /var/log/auth.log
+port = $FAIL2BAN_PORT
+$FAIL2BAN_BACKEND_CONF
 maxretry = 5
 bantime = 1800
 findtime = 600
 
 [sshd-ddos]
 enabled = true
-port = ssh
-logpath = /var/log/auth.log
+port = $FAIL2BAN_PORT
+$FAIL2BAN_BACKEND_CONF
 maxretry = 10
 bantime = 600
 findtime = 600
@@ -1602,10 +1854,11 @@ action = %(action_)s
 EOF
 
     # 启动 Fail2ban
-    $SUDO systemctl enable fail2ban
-    $SUDO systemctl restart fail2ban
+    $SUDO systemctl enable fail2ban 2>/dev/null || true
+    $SUDO systemctl restart fail2ban 2>/dev/null || true
     
-    echo "✔ Fail2ban 已安装并启用"
+    echo "✔ Fail2ban 已配置完成"
+    echo "   • 监控端口: $FAIL2BAN_PORT"
     echo "   • 禁用时间: 30 分钟"
     echo "   • 最大失败次数: 5 次 (30 分钟内)"
     echo "   • DDoS 防护: 最多 10 次失败后禁用 10 分钟"
@@ -1623,18 +1876,18 @@ echo "=== 配置完成！==="
 echo "请重启你的终端或运行以下命令以应用所有更改："
 
 if [[ "$INSTALL_SHELL" == "fish" ]]; then
-    echo "source ~/.config/fish/config.fish"
+    echo "exec fish"
     echo ""
-    echo "💡 提示：如果你想让 Fish 成为默认 shell，请运行："
+    echo "提示：如果你想让 Fish 成为默认 shell，请运行："
     echo "chsh -s \$(which fish)"
 elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
-    echo "source ~/.zshrc"
+    echo "exec zsh"
     echo ""
-    echo "💡 提示：如果你想让 Zsh 成为默认 shell，请运行："
+    echo "提示：如果你想让 Zsh 成为默认 shell，请运行："
     echo "chsh -s \$(which zsh)"
 else
     echo "source ~/.bashrc"
 fi
 
 echo ""
-echo "🎉 $INSTALL_SHELL 环境配置完成！"
+echo "$INSTALL_SHELL 环境配置完成。"
