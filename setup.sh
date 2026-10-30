@@ -151,6 +151,7 @@ esac
 get_config_file() {
     local file_path="$1"
     local dest_file="$2"
+    mkdir -p "$(dirname "$dest_file")"
     
     if [[ "$INSTALL_MODE" == "local" ]]; then
         # 本地模式：从本地仓库复制
@@ -389,6 +390,9 @@ install_fisher_plugins() {
 
     local fish_plugins_file="$HOME/.config/fish/fish_plugins"
     if [[ ! -f "$fish_plugins_file" ]]; then
+        get_config_file ".config/fish/fish_plugins" "$fish_plugins_file" 2>/dev/null || true
+    fi
+    if [[ ! -f "$fish_plugins_file" ]]; then
         echo "⚠ 未找到 fish_plugins 文件，跳过插件安装。"
         return 0
     fi
@@ -486,6 +490,12 @@ detect_system_info() {
         DISTRO_MAJOR=0
     fi
 
+    # 检查是否为 Debian / Ubuntu 体系
+    IS_DEBIAN_LIKE=false
+    if [[ "$DISTRO_ID" == "debian" || "$DISTRO_ID" == "ubuntu" || "${ID_LIKE:-}" =~ (debian|ubuntu) ]] || [ -f /etc/debian_version ]; then
+        IS_DEBIAN_LIKE=true
+    fi
+
     # 现代化系统判定：Ubuntu >= 22.04（包括 24.04, 26.04+），Debian >= 12（包括 13+）
     if [[ "$DISTRO_ID" == "ubuntu" && "$DISTRO_MAJOR" -ge 22 ]] || \
        [[ "$DISTRO_ID" == "debian" && "$DISTRO_MAJOR" -ge 12 ]]; then
@@ -493,6 +503,10 @@ detect_system_info() {
     fi
 }
 detect_system_info
+
+if [[ "$IS_DEBIAN_LIKE" == false ]]; then
+    echo "⚠ 警告: 本脚本专为 Debian / Ubuntu (Deb 系) 系统设计，当前系统可能无法保证兼容性。"
+fi
 
 ###
 # 第一步：用户检查与处理（Root 用户处理）
@@ -671,7 +685,13 @@ if [[ "$EUID" -ne 0 ]]; then
     echo "▶ 正在配置 sudo 免密码..."
     # 尝试配置免密
     if echo "$CURRENT_USER ALL=(ALL) NOPASSWD:ALL" | $SUDO tee /etc/sudoers.d/90-$CURRENT_USER > /dev/null 2>&1; then
-        echo "✔ sudo 免密码配置成功！"
+        $SUDO chmod 440 /etc/sudoers.d/90-$CURRENT_USER
+        if command -v visudo &>/dev/null && ! $SUDO visudo -c -f /etc/sudoers.d/90-$CURRENT_USER > /dev/null 2>&1; then
+            echo "⚠ sudoers 语法校验失败，已自动回滚以避免 sudo 损坏。"
+            $SUDO rm -f /etc/sudoers.d/90-$CURRENT_USER
+        else
+            echo "✔ sudo 免密码配置成功！"
+        fi
     else
         echo "⚠ sudo 免密码配置失败，脚本将继续运行，后续可能需要手动输入密码。"
     fi
@@ -704,8 +724,15 @@ if [[ "$BACKUP_FILES" =~ ^[Yy]$ ]]; then
     elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
         backup_files+=(".zshrc" ".aliases")
     elif [[ "$INSTALL_SHELL" == "fish" ]]; then
-        backup_files+=(".config/fish/config.fish" ".config/fish/functions/aliases.fish")
+        backup_files+=(".config/fish/config.fish" ".config/fish/functions/aliases.fish" ".config/fish/fish_plugins")
     fi
+
+    # 包含可能被脚本覆盖的通用配置文件
+    for common_cfg in ".gitconfig" ".login_info.sh" ".config/starship.toml" ".config/starship-plain.toml" ".config/kitty/current-theme.conf" ".config/kitty/kitty.conf" ".config/ghostty/config.ghostty" ".config/ghostty/auto/theme.ghostty"; do
+        if [ -f "$HOME/$common_cfg" ]; then
+            backup_files+=("$common_cfg")
+        fi
+    done
 
     for file in "${backup_files[@]}"; do
         if [ -f "$HOME/$file" ]; then
@@ -784,15 +811,15 @@ case "$PROFILE" in
         ;;
     full|desktop)
         echo "▶ 安装基础工具 (full 模式)..."
-        install_basic_tools curl wget git ca-certificates jq neovim
+        install_basic_tools curl wget git ca-certificates jq neovim ncurses-term
         ;;
     server)
         echo "▶ 安装服务器基础工具..."
-        install_basic_tools curl wget git ca-certificates
+        install_basic_tools curl wget git ca-certificates ncurses-term
         ;;
     *)
         echo "▶ 选择要安装的基础工具："
-        basic_tools=("ALL" "curl" "wget" "git" "ca-certificates" "jq" "neovim" "SKIP")
+        basic_tools=("ALL" "curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term" "SKIP")
         selected_basic=$(select_tools "基础工具安装" "${basic_tools[@]}")
 
         if [[ "$selected_basic" == *"SKIP"* ]] || [[ -z "$selected_basic" ]]; then
@@ -800,7 +827,7 @@ case "$PROFILE" in
         else
             tools_to_install=()
             if [[ "$selected_basic" == *"ALL"* ]]; then
-                tools_to_install=("curl" "wget" "git" "ca-certificates" "jq" "neovim")
+                tools_to_install=("curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term")
             else
                 for tool in $selected_basic; do
                     if [[ "$tool" != "ALL" && "$tool" != "SKIP" ]]; then
@@ -820,32 +847,159 @@ esac
 echo "------------------------------"
 
 # --- 安装 Starship ---
+echo "=== Starship 提示符配置 ==="
+STARSHIP_ALREADY_INSTALLED=false
+if command -v starship &> /dev/null; then
+    STARSHIP_ALREADY_INSTALLED=true
+    echo "✔ 检测到 Starship 已安装: $(starship --version 2>/dev/null | head -n1)"
+fi
+
+INSTALL_STARSHIP="N"
 case "$PROFILE" in
-    minimal) INSTALL_STARSHIP="N" ;;
-    full|desktop|server) INSTALL_STARSHIP="Y" ;;
+    minimal)
+        INSTALL_STARSHIP="N"
+        ;;
+    full|desktop|server)
+        INSTALL_STARSHIP="Y"
+        ;;
     *)
-        printf "是否安装 Starship 及其配置? (y/N) "
-        if read -t 10 INSTALL_STARSHIP < /dev/tty; then :; else INSTALL_STARSHIP="N"; echo ""; fi
+        if [[ "$STARSHIP_ALREADY_INSTALLED" == true ]]; then
+            printf "是否重新安装/更新 Starship? (y/N) "
+            if read -t 10 REINSTALL_STARSHIP < /dev/tty; then :; else REINSTALL_STARSHIP="N"; echo ""; fi
+            if [[ "$REINSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
+                INSTALL_STARSHIP="Y"
+            fi
+        else
+            printf "是否安装 Starship 提示符? (y/N) "
+            if read -t 15 INSTALL_STARSHIP < /dev/tty; then :; else INSTALL_STARSHIP="N"; echo ""; fi
+        fi
         ;;
 esac
 
 if [[ "$INSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
     echo "▶ 正在安装 Starship..."
-    if ! command -v starship &> /dev/null; then
-        bash -lc "curl -sS https://starship.rs/install.sh | sh -s -- --yes"
+    if bash -lc "curl -sS https://starship.rs/install.sh | sh -s -- --yes"; then
         echo "✔ Starship 安装成功！"
     else
-        echo "✔ Starship 已经安装，跳过安装。"
+        echo "⚠ Starship 安装脚本执行异常，将继续尝试后续配置。"
     fi
     echo "------------------------------"
+fi
 
-    # --- 配置 Starship ---
-    echo "▶ 正在配置 Starship ..."
-    mkdir -p ~/.config
-    get_config_file ".config/starship.toml" "$HOME/.config/starship.toml"
-    echo "✔ Starship 配置成功！"
+# 检查当前是否可以使用 starship 命令配置主题
+if command -v starship &> /dev/null; then
+    CONFIGURE_PRESET="N"
+    case "$PROFILE" in
+        minimal)
+            CONFIGURE_PRESET="N"
+            ;;
+        full|desktop|server)
+            CONFIGURE_PRESET="Y"
+            ;;
+        *)
+            printf "是否配置 Starship 官方 Preset 主题? (Y/n) "
+            if read -t 15 CONFIGURE_PRESET < /dev/tty; then :; else CONFIGURE_PRESET="Y"; echo ""; fi
+            [[ -z "$CONFIGURE_PRESET" ]] && CONFIGURE_PRESET="Y"
+            ;;
+    esac
+
+    if [[ "$CONFIGURE_PRESET" =~ ^[Yy]$ ]]; then
+        mkdir -p "$HOME/.config"
+        echo "▶ 请选择要安装的 Starship 官方 Preset 主题："
+        echo "   1) gruvbox-rainbow      (默认，Gruvbox 彩虹分段，需 Nerd Font)"
+        echo "   2) catppuccin-powerline (Catppuccin 莫兰迪配色 Powerline 主题)"
+        echo "   3) pastel-powerline     (柔和粉彩配色 Powerline 主题)"
+        echo "   4) tokyo-night          (Tokyo Night 配色主题)"
+        echo "   5) pure-preset          (仿 Pure 极简风格主题)"
+        echo "   6) jetpack              (双行紧凑几何火箭极简主题)"
+        echo "   7) bracketed-segments   (方括号包裹各模块分段主题)"
+        echo "   8) nerd-font-symbols    (丰富 Nerd Font 图标预设)"
+        echo "   9) no-runtime-versions  (隐藏各语言运行时版本号)"
+        echo "  10) no-empty-icons       (无环境工具时隐藏图标)"
+        echo "  11) plain-text-symbols   (纯文本 ASCII 符号，无 Nerd Font)"
+        echo "  12) no-nerd-font         (无 Nerd Font 标准符号预设)"
+        echo "  13) 保持现有配置 / 跳过"
+        printf "请输入序号 (1-13，默认 1): "
+        if read -t 20 PRESET_CHOICE < /dev/tty; then :; else PRESET_CHOICE="1"; echo ""; fi
+        [[ -z "$PRESET_CHOICE" ]] && PRESET_CHOICE="1"
+
+        CHOSEN_PRESET=""
+        case "$PRESET_CHOICE" in
+            1) CHOSEN_PRESET="gruvbox-rainbow" ;;
+            2) CHOSEN_PRESET="catppuccin-powerline" ;;
+            3) CHOSEN_PRESET="pastel-powerline" ;;
+            4) CHOSEN_PRESET="tokyo-night" ;;
+            5) CHOSEN_PRESET="pure-preset" ;;
+            6) CHOSEN_PRESET="jetpack" ;;
+            7) CHOSEN_PRESET="bracketed-segments" ;;
+            8) CHOSEN_PRESET="nerd-font-symbols" ;;
+            9) CHOSEN_PRESET="no-runtime-versions" ;;
+            10) CHOSEN_PRESET="no-empty-icons" ;;
+            11) CHOSEN_PRESET="plain-text-symbols" ;;
+            12) CHOSEN_PRESET="no-nerd-font" ;;
+            13)
+                echo "⏭ 保持现有主配置 ~/.config/starship.toml"
+                ;;
+            *)
+                echo "⚠ 无效输入，默认应用 gruvbox-rainbow"
+                CHOSEN_PRESET="gruvbox-rainbow"
+                ;;
+        esac
+
+        if [[ -n "$CHOSEN_PRESET" ]]; then
+            echo "▶ 正在应用官方 Preset: $CHOSEN_PRESET -> ~/.config/starship.toml"
+            if starship preset "$CHOSEN_PRESET" -o "$HOME/.config/starship.toml" --force 2>/dev/null; then
+                echo "✔ 主配置已成功写入: $CHOSEN_PRESET"
+            else
+                echo "⚠ starship preset 命令执行失败，尝试获取本地仓库/远程模板..."
+                get_config_file ".config/starship.toml" "$HOME/.config/starship.toml"
+            fi
+        fi
+        echo "------------------------------"
+
+        # 下一步：是否配置无 Nerd 字体环境时使用的主题
+        case "$PROFILE" in
+            minimal)
+                FALLBACK_PRESET_CHOICE="3"
+                ;;
+            full|desktop|server)
+                FALLBACK_PRESET_CHOICE="1"
+                ;;
+            *)
+                echo "▶ 是否配置无 Nerd 字体环境的兼容主题 (用于 VNC、Web 控制台、TTY 等)？"
+                echo "   1) plain-text-symbols (默认，纯文本 ASCII 符号，开箱即用 0 乱码)"
+                echo "   2) no-nerd-font       (使用标准 Unicode/Emoji 代替 Nerd Font)"
+                echo "   3) 跳过 / 不配置"
+                printf "请输入序号 (1-3，默认 1): "
+                if read -t 15 FALLBACK_PRESET_CHOICE < /dev/tty; then :; else FALLBACK_PRESET_CHOICE="1"; echo ""; fi
+                [[ -z "$FALLBACK_PRESET_CHOICE" ]] && FALLBACK_PRESET_CHOICE="1"
+                ;;
+        esac
+
+        case "$FALLBACK_PRESET_CHOICE" in
+            1)
+                echo "▶ 正在生成无 Nerd 字体官方主题: plain-text-symbols -> ~/.config/starship-plain.toml"
+                if starship preset plain-text-symbols -o "$HOME/.config/starship-plain.toml" --force; then
+                    echo "✔ 已配置无 Nerd 字体兼容主题: plain-text-symbols"
+                else
+                    echo "⚠ 生成 plain-text-symbols 兼容主题失败。"
+                fi
+                ;;
+            2)
+                echo "▶ 正在生成无 Nerd 字体官方主题: no-nerd-font -> ~/.config/starship-plain.toml"
+                if starship preset no-nerd-font -o "$HOME/.config/starship-plain.toml" --force; then
+                    echo "✔ 已配置无 Nerd 字体兼容主题: no-nerd-font"
+                else
+                    echo "⚠ 生成 no-nerd-font 兼容主题失败。"
+                fi
+                ;;
+            *)
+                echo "⏭ 跳过无 Nerd 字体兼容主题配置。"
+                ;;
+        esac
+    fi
 else
-    echo "⏭ 跳过 Starship 安装与配置。"
+    echo "⏭ 未安装 Starship，跳过主题配置。"
 fi
 echo "------------------------------"
 
@@ -860,19 +1014,42 @@ case "$PROFILE" in
 esac
 
 if [[ "$INSTALL_FONTS" =~ ^[Yy]$ ]]; then
-    if fc-list 2>/dev/null | grep -qi "JetBrainsMapleMono"; then
+    if command -v fc-list &>/dev/null && fc-list 2>/dev/null | grep -qi "JetBrainsMapleMono"; then
         echo "✔ JetBrains Maple Mono 字体已安装，跳过安装。"
     else
         echo "▶ 正在安装 JetBrains Maple Mono 字体..."
-        wget https://github.com/SpaceTimee/Fusion-JetBrainsMapleMono/releases/latest/download/JetBrainsMapleMono-NF-XX-XX-XX.zip
-        unzip -o JetBrainsMapleMono-NF-XX-XX-XX.zip
-        mkdir -p ~/.fonts
-        mv *.ttf ~/.fonts/
-        rm JetBrainsMapleMono-NF-XX-XX-XX.zip LICENSE.txt
-        if command -v fc-cache &> /dev/null; then
-            fc-cache -f -v
+        # 确保依赖 unzip 与 fontconfig 存在
+        FONT_DEPS=()
+        command -v unzip &>/dev/null || FONT_DEPS+=("unzip")
+        command -v fc-cache &>/dev/null || FONT_DEPS+=("fontconfig")
+        if [[ ${#FONT_DEPS[@]} -gt 0 ]]; then
+            $SUDO apt-get install -y "${FONT_DEPS[@]}" 2>/dev/null || true
         fi
-        echo "✔ JetBrains Maple Mono 字体安装成功！"
+
+        # 字体存放路径：现代系统优先使用 ~/.local/share/fonts，旧系统兼容 ~/.fonts
+        if [[ "$IS_MODERN_SYSTEM" == true ]] || [ -d "$HOME/.local/share" ]; then
+            FONT_DIR="$HOME/.local/share/fonts"
+        else
+            FONT_DIR="$HOME/.fonts"
+        fi
+        mkdir -p "$FONT_DIR"
+
+        FONT_TEMP=$(mktemp -d)
+        TEMP_FILES+=("$FONT_TEMP")
+        FONT_URL="https://github.com/SpaceTimee/Fusion-JetBrainsMapleMono/releases/latest/download/JetBrainsMapleMono-NF-XX-XX-XX.zip"
+
+        if curl -fsSL "$FONT_URL" -o "$FONT_TEMP/font.zip" || wget -q "$FONT_URL" -O "$FONT_TEMP/font.zip"; then
+            unzip -qo "$FONT_TEMP/font.zip" -d "$FONT_TEMP/unzipped" 2>/dev/null || true
+            find "$FONT_TEMP/unzipped" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp -f {} "$FONT_DIR/" \; 2>/dev/null || true
+            rm -rf "$FONT_TEMP"
+            if command -v fc-cache &> /dev/null; then
+                fc-cache -f "$FONT_DIR" 2>/dev/null || fc-cache -f -v 2>/dev/null || true
+            fi
+            echo "✔ JetBrains Maple Mono 字体安装成功！(路径: $FONT_DIR)"
+        else
+            echo "⚠ 下载字体失败，跳过字体安装。"
+            rm -rf "$FONT_TEMP"
+        fi
     fi
 else
     echo "⏭ 跳过字体安装。"
@@ -903,6 +1080,7 @@ if [[ "$INSTALL_SHELL" == "fish" ]]; then
         echo "▶ 正在下载 fish 配置..."
         get_config_file ".config/fish/config.fish" "$HOME/.config/fish/config.fish"
         get_config_file ".config/fish/functions/aliases.fish" "$HOME/.config/fish/functions/aliases.fish"
+        get_config_file ".config/fish/fish_plugins" "$HOME/.config/fish/fish_plugins"
         get_config_file ".login_info.sh" "$HOME/.login_info.sh"
 
         if command -v nvim &> /dev/null; then
@@ -1013,6 +1191,30 @@ else
 
 # Starship prompt for Oh My Bash
 if command -v starship &> /dev/null; then
+    if [[ "$TERM" == "xterm-ghostty" ]]; then
+        if ! infocmp -a xterm-ghostty &>/dev/null; then
+            export TERM=xterm-256color
+        fi
+    fi
+
+    is_plain_env=false
+    if [[ -n "$STARSHIP_PLAIN" && "$STARSHIP_PLAIN" != "0" ]]; then
+        is_plain_env=true
+    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi)$ ]]; then
+        is_plain_env=true
+    elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" ]]; then
+        is_plain_env=true
+    elif [[ -n "$DISPLAY" && -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" != "xterm-ghostty" ]]; then
+        is_plain_env=true
+    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" =~ xterm && -z "$COLORTERM" && "$TERM" != "xterm-ghostty" ]]; then
+        is_plain_env=true
+    fi
+
+    if [[ "$is_plain_env" == true && -f "$HOME/.config/starship-plain.toml" ]]; then
+        export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+    else
+        unset STARSHIP_CONFIG
+    fi
     eval "$(starship init bash)"
 fi
 EOF
@@ -1564,6 +1766,7 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
         cat << EOF | $SUDO tee "$CONFIG_FILE" > /dev/null
 # Custom SSH configuration added by dotfiles setup
 Port $SSH_PORT
+AcceptEnv LANG LC_* TERM_PROGRAM COLORTERM
 EOF
 
         if [[ "$DISABLE_ROOT_SSH" =~ ^[Yy]$ ]]; then

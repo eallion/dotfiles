@@ -107,6 +107,32 @@ bindkey "$terminfo[kcud1]" history-substring-search-down
 # Theme: Starship
 ###
 if (( $+commands[starship] )); then
+    # 终端定义保护
+    if [[ "$TERM" == "xterm-ghostty" ]]; then
+        if ! infocmp -a xterm-ghostty &>/dev/null; then
+            export TERM=xterm-256color
+        fi
+    fi
+
+    # Starship 智能主题适配逻辑：默认使用主配置，仅在明确不支持 Nerd Font 环境下自动降级
+    local is_plain_env=false
+    if [[ -n "$STARSHIP_PLAIN" && "$STARSHIP_PLAIN" != "0" ]]; then
+        is_plain_env=true
+    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi)$ ]]; then
+        is_plain_env=true
+    elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" ]]; then
+        is_plain_env=true
+    elif [[ -n "$DISPLAY" && -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" != "xterm-ghostty" ]]; then
+        is_plain_env=true
+    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" =~ xterm && -z "$COLORTERM" && "$TERM" != "xterm-ghostty" ]]; then
+        is_plain_env=true
+    fi
+
+    if [[ "$is_plain_env" == true && -f "$HOME/.config/starship-plain.toml" ]]; then
+        export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+    else
+        unset STARSHIP_CONFIG
+    fi
     eval "$(starship init zsh)"
 fi
 

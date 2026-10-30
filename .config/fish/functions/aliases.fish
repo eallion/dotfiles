@@ -153,7 +153,6 @@ abbr --add dlast "docker exec -it (docker ps -lq) bash"
 abbr --add dlogs docker logs -f
 abbr --add dlf docker logs -f
 abbr --add docker-compose docker compose
-abbr --add dsns "docker stats --no-stream --format \"table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}\" | awk -v host_total=(awk '/MemTotal/ {print \$2}' /proc/meminfo) \"NR==1 {print \\\$0; next} {print \\\$0; if (match(\\\$0, /[0-9.]+[KMG]?i?B[ ]+\\/[ ]+[0-9.]+[KMG]?i?B/)) {str = substr(\\\$0, RSTART, RLENGTH); split(str, parts, \\\"/\\\"); match(parts[1], /[0-9.]+/); u_val = substr(parts[1], RSTART, RLENGTH); u_unit = substr(parts[1], RSTART+RLENGTH); gsub(/[ ]/, \\\"\\\", u_unit); if (u_unit ~ /GiB/) u_val *= 1024; else if (u_unit ~ /KiB/) u_val /= 1024; else if (u_unit ~ /B\\\$/ && u_unit !~ /MiB/ && u_unit !~ /KiB/) u_val /= (1024*1024); u_sum += u_val;}} END {host_total_mib = host_total / 1024; if (host_total_mib > 0) printf \\\"\nTotal Memory Usage: %.2f MiB (%.2f%% of Host Total)\n\\\", u_sum, (u_sum / host_total_mib) * 100; else printf \\\"\nTotal Memory Usage: %.2f MiB\n\\\", u_sum;}\""
 
 # Command wrappers
 
@@ -311,6 +310,33 @@ function up
     and type -q mise; and mise up -q
 end
 
+function dsns -d "Docker 容器内存统计与主机占用汇总"
+    set -l host_total (awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null)
+    docker stats --no-stream --format "table {{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}" | awk -v host_total="$host_total" '
+    NR==1 {print $0; next} 
+    {
+        print $0;
+        if (match($0, /[0-9.]+[KMG]?i?B[ ]+\/[ ]+[0-9.]+[KMG]?i?B/)) {
+            str = substr($0, RSTART, RLENGTH);
+            split(str, parts, "/");
+            match(parts[1], /[0-9.]+/);
+            u_val = substr(parts[1], RSTART, RLENGTH);
+            u_unit = substr(parts[1], RSTART+RLENGTH);
+            gsub(/[ ]/, "", u_unit);
+            if (u_unit ~ /GiB/) u_val *= 1024;
+            else if (u_unit ~ /KiB/) u_val /= 1024;
+            else if (u_unit ~ /B$/ && u_unit !~ /MiB/ && u_unit !~ /KiB/) u_val /= (1024*1024);
+            u_sum += u_val;
+        }
+    } END {
+        host_total_mib = host_total / 1024;
+        if (host_total_mib > 0) 
+            printf "\nTotal Memory Usage: %.2f MiB (%.2f%% of Host Total)\n", u_sum, (u_sum / host_total_mib) * 100;
+        else 
+            printf "\nTotal Memory Usage: %.2f MiB\n", u_sum;
+    }'
+end
+
 function warn_rm
     if type -q trash
         echo "🚨 警告：rm 功能已禁用！" >&2
@@ -323,19 +349,20 @@ function warn_rm
         echo " " >&2
         echo "请安装 'trash-cli' 以使用回收站代替 rm。" >&2
         echo " " >&2
-        if type -q apt
-            echo "• sudo apt install trash-cli" >&2
-        else if type -q yum
-            echo "• sudo yum install trash-cli" >&2
-        else if type -q brew
-            echo "• brew install trash-cli" >&2
-        else if type -q pacman
-            echo "• sudo pacman -S trash-cli" >&2
-        else
-            echo "请前往 https://github.com/andreafrancia/trash-cli 安装 'trash-cli' 。" >&2
-        end
+        echo "• sudo apt install trash-cli" >&2
         echo " " >&2
         echo "用 '\\rm file' 可强制使用系统 rm 功能。" >&2
         return 1
     end
+end
+
+# Starship 主题快捷切换
+function starship-plain -d "切换为无 Nerd 字体纯文本 Starship 主题"
+    set -gx STARSHIP_CONFIG $HOME/.config/starship-plain.toml
+    echo "✔ 已切换为 Starship 纯文本兼容主题"
+end
+
+function starship-rainbow -d "恢复为默认 Starship 主题 (如 Gruvbox Rainbow)"
+    set -e STARSHIP_CONFIG
+    echo "✔ 已恢复为 Starship 默认预设主题"
 end

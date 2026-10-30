@@ -17,19 +17,9 @@ warn_rm() {
     else
         echo "🚨 警告：rm 功能已禁用！" >&2
         echo " " >&2
-        echo "请安装 'trash-cli' 以使用回收站代替 rm。" >&2
+        echo "请使用安全的 'trash file' 命令将文件放入回收站。" >&2
         echo " " >&2
-        if command -v apt >/dev/null 2>&1; then
-            echo "• sudo apt install trash-cli" >&2
-        elif command -v yum >/dev/null 2>&1; then
-            echo "• sudo yum install trash-cli" >&2
-        elif command -v brew >/dev/null 2>&1; then
-            echo "• brew install trash-cli" >&2
-        elif command -v pacman >/dev/null 2>&1; then
-            echo "• sudo pacman -S trash-cli" >&2
-        else
-            echo "请前往 https://github.com/andreafrancia/trash-cli 安装 'trash-cli' 。" >&2
-        fi
+        echo "• sudo apt install trash-cli" >&2
         echo " " >&2
         echo "用 '\\rm file' 可强制使用系统 rm 功能。" >&2
         return 1
@@ -178,3 +168,7 @@ dsns() {
     }'
 }
 alias dsns=dsns
+
+# Starship 主题快捷切换
+alias starship-plain='export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"'
+alias starship-rainbow='unset STARSHIP_CONFIG'
