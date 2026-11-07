@@ -118,18 +118,27 @@ if (( $+commands[starship] )); then
     local is_plain_env=false
     if [[ -n "$STARSHIP_PLAIN" && "$STARSHIP_PLAIN" != "0" ]]; then
         is_plain_env=true
-    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi)$ ]]; then
+    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi|console)$ ]]; then
         is_plain_env=true
     elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" ]]; then
         is_plain_env=true
-    elif [[ -n "$DISPLAY" && -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" != "xterm-ghostty" ]]; then
-        is_plain_env=true
-    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" =~ xterm && -z "$COLORTERM" && "$TERM" != "xterm-ghostty" ]]; then
-        is_plain_env=true
+    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && -z "$SSH_TTY" ]]; then
+        if [[ -z "$DISPLAY" && -z "$WAYLAND_DISPLAY" ]]; then
+            if [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
+                is_plain_env=true
+            fi
+        elif [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
+            is_plain_env=true
+        fi
     fi
 
-    if [[ "$is_plain_env" == true && -f "$HOME/.config/starship-plain.toml" ]]; then
-        export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+    if [[ "$is_plain_env" == true ]]; then
+        if [[ ! -f "$HOME/.config/starship-plain.toml" ]]; then
+            starship preset plain-text-symbols -o "$HOME/.config/starship-plain.toml" --force >/dev/null 2>&1 || true
+        fi
+        if [[ -f "$HOME/.config/starship-plain.toml" ]]; then
+            export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+        fi
     else
         unset STARSHIP_CONFIG
     fi

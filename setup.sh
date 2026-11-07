@@ -2,6 +2,7 @@
 #
 # 自适应 Shell 环境配置脚本，支持 bash 和 fish
 # 自动检测执行脚本的 shell 并安装相应配置
+# 注意：本脚本专为 Debian / Ubuntu (Deb 系) 系统设计，仅支持 Deb 系 Linux 发行版
 #
 set -e
 
@@ -107,7 +108,7 @@ if [[ "$1" == "--clean-backup" || "$1" == "-c" ]]; then
 fi
 
 ###
-# 检测安装模式：本地或在线
+# 检测安装模式：本地或在线，并自动判定在线源基地址
 ###
 # 本地模式：通过 ./install.sh 调用时，第二个参数为 "local"
 # 在线模式：通过 curl 管道调用时，第二个参数为空或不传递
@@ -117,10 +118,214 @@ if [[ "$INSTALL_MODE_PARAM" == "local" ]]; then
     INSTALL_MODE="local"
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     DOTFILES_DIR="$SCRIPT_DIR"
+    ONLINE_RAW_BASE_URL=""
 else
     INSTALL_MODE="online"
     DOTFILES_DIR=""
+
+    detect_raw_candidate() {
+        # 1. 优先检查环境变量
+        if [[ -n "$DOTFILES_RAW_BASE" ]]; then
+            echo "${DOTFILES_RAW_BASE%/}"
+            return 0
+        fi
+
+        # 2. 检查命令行显式传递的 URL 参数或镜像关键字
+        for arg in "$@"; do
+            if [[ "$arg" =~ ^https?:// ]]; then
+                local stripped="${arg%/setup.sh*}"
+                echo "${stripped%/}"
+                return 0
+            elif [[ "$arg" == "github" ]]; then
+                echo "https://raw.githubusercontent.com/eallion/dotfiles/main"
+                return 0
+            elif [[ "$arg" == "cnb" || "$arg" == "cnb.cool" ]]; then
+                echo "https://cnb.cool/eallion/dotfiles/-/git/raw/main"
+                return 0
+            fi
+        done
+
+        # 3. 尝试从管道命令探测入口 (Linux /proc 探测兄弟进程 curl/wget)
+        if [[ -n "$PPID" && -d "/proc/$PPID" ]]; then
+            for pid in $(pgrep -P "$PPID" 2>/dev/null); do
+                if [[ -r "/proc/$pid/cmdline" ]]; then
+                    local cmdline
+                    cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)
+                    if [[ "$cmdline" =~ (https?://[^ ]+setup\.sh[^ ]*) ]]; then
+                        local full_url="${BASH_REMATCH[1]}"
+                        local base_url="${full_url%/setup.sh*}"
+                        echo "${base_url%/}"
+                        return 0
+                    elif [[ "$cmdline" =~ (https?://[^ ]+dotfiles[^ ]*) ]]; then
+                        local full_url="${BASH_REMATCH[1]}"
+                        local base_url="${full_url%/setup.sh*}"
+                        echo "${base_url%/}"
+                        return 0
+                    fi
+                fi
+            done
+        fi
+
+        # 默认使用 GitHub 源候选
+        echo "https://raw.githubusercontent.com/eallion/dotfiles/main"
+    }
+
+    resolve_raw_base_url() {
+        local candidate
+        candidate=$(detect_raw_candidate "$@")
+
+        echo "▶ 正在检测安装源连通性: $candidate" >&2
+        if curl -fsSL --connect-timeout 2 -m 3 "${candidate}/.aliases" >/dev/null 2>&1; then
+            echo "✔ 安装源连通性测试通过。" >&2
+            echo "$candidate"
+            return 0
+        fi
+
+        # 探活失败时，不自动切换，必须询问用户
+        echo "------------------------------" >&2
+        echo "⚠ 检测到当前安装源无法连通: $candidate" >&2
+        echo "▶ 请选择要使用的安装源：" >&2
+        echo "   1) cnb.cool (腾讯云 CNB 国内镜像，推荐)" >&2
+        echo "   2) 保持原样继续尝试" >&2
+        echo "   3) 自定义 Raw 基础链接" >&2
+        printf "请输入序号 (1-3，默认 1): " >&2
+
+        local choice="1"
+        if read -t 20 choice < /dev/tty; then :; else choice="1"; echo "" >&2; fi
+        [[ -z "$choice" ]] && choice="1"
+
+        case "$choice" in
+            1)
+                echo "https://cnb.cool/eallion/dotfiles/-/git/raw/main"
+                ;;
+            2)
+                echo "$candidate"
+                ;;
+            3)
+                printf "请输入自定义 Raw 基础链接 (例如 https://cnb.cool/eallion/dotfiles/-/git/raw/main): " >&2
+                local custom_url=""
+                read -t 30 custom_url < /dev/tty
+                custom_url="${custom_url%/}"
+                if [[ -n "$custom_url" ]]; then
+                    echo "$custom_url"
+                else
+                    echo "⚠ 输入为空，保持原样。" >&2
+                    echo "$candidate"
+                fi
+                ;;
+            *)
+                echo "⚠ 无效输入，默认使用 CNB 国内镜像。" >&2
+                echo "https://cnb.cool/eallion/dotfiles/-/git/raw/main"
+                ;;
+        esac
+    }
+
+    ONLINE_RAW_BASE_URL=$(resolve_raw_base_url "$@")
+    echo "▶ 在线安装源: $ONLINE_RAW_BASE_URL"
 fi
+
+###
+# GitHub 资源加速节点配置 (用于下载 Fisher、字体、Oh-My-Bash、Starship 等非 apt 托管资源)
+###
+GH_PROXY=""
+
+select_github_proxy() {
+    # 如果已由环境变量显式指定，直接使用
+    if [[ -n "$DOTFILES_GH_PROXY" ]]; then
+        GH_PROXY="${DOTFILES_GH_PROXY%/}/"
+        echo "✔ 使用环境变量指定的 GitHub 加速节点: $GH_PROXY"
+        return 0
+    fi
+
+    echo "------------------------------"
+    echo "=== GitHub 资源加速节点配置 ==="
+    echo "部分工具 (Fisher、字体、Oh My Bash、ufw-docker 等) 托管于 GitHub。"
+    echo "▶ 正在检测当前环境直连 GitHub 连通性..."
+
+    local can_connect_gh=false
+    if curl -fsSL --connect-timeout 1 -m 2 "https://raw.githubusercontent.com" >/dev/null 2>&1; then
+        can_connect_gh=true
+    fi
+
+    local default_proxy_choice="1"
+    if [[ "$can_connect_gh" == true ]]; then
+        default_proxy_choice="5"
+        echo "ℹ 当前网络直连 GitHub 正常。"
+    else
+        echo "⚠ 当前网络直连 GitHub 受限或超时，建议使用加速节点。"
+    fi
+
+    echo "▶ 请选择 GitHub 资源加速节点："
+    echo "   1) https://ghproxy.net/ (推荐)"
+    echo "   2) https://github.akams.cn/"
+    echo "   3) https://mirror.ghproxy.com/"
+    echo "   4) https://gh-proxy.com/"
+    echo "   5) 不使用加速 (直连 GitHub)"
+    echo "   6) 自定义加速链接"
+    printf "请输入序号 (1-6，默认 %s): " "$default_proxy_choice"
+
+    local proxy_choice="$default_proxy_choice"
+    if read -t 20 proxy_choice < /dev/tty 2>/dev/null; then :; else proxy_choice="$default_proxy_choice"; echo ""; fi
+    [[ -z "$proxy_choice" ]] && proxy_choice="$default_proxy_choice"
+
+    case "$proxy_choice" in
+        1)
+            GH_PROXY="https://ghproxy.net/"
+            ;;
+        2)
+            GH_PROXY="https://github.akams.cn/"
+            ;;
+        3)
+            GH_PROXY="https://mirror.ghproxy.com/"
+            ;;
+        4)
+            GH_PROXY="https://gh-proxy.com/"
+            ;;
+        5)
+            GH_PROXY=""
+            ;;
+        6)
+            printf "请输入自定义加速前缀 (例如 https://github.akams.cn/ 或 https://gh.ddlc.top/): "
+            local custom_proxy=""
+            read -t 30 custom_proxy < /dev/tty
+            custom_proxy="${custom_proxy%/}"
+            if [[ -n "$custom_proxy" ]]; then
+                GH_PROXY="${custom_proxy}/"
+            else
+                echo "⚠ 输入为空，不使用加速。"
+                GH_PROXY=""
+            fi
+            ;;
+        *)
+            echo "⚠ 无效输入，使用默认选项。"
+            if [[ "$default_proxy_choice" == "1" ]]; then
+                GH_PROXY="https://ghproxy.net/"
+            else
+                GH_PROXY=""
+            fi
+            ;;
+    esac
+
+    if [[ -n "$GH_PROXY" ]]; then
+        echo "✔ 已配置 GitHub 加速节点: $GH_PROXY"
+    else
+        echo "✔ 已配置直连 GitHub (不使用加速)"
+    fi
+    echo "------------------------------"
+}
+
+apply_gh_proxy() {
+    local target_url="$1"
+    if [[ -z "$GH_PROXY" ]]; then
+        echo "$target_url"
+    else
+        if [[ "$target_url" == "$GH_PROXY"* ]]; then
+            echo "$target_url"
+        else
+            echo "${GH_PROXY}${target_url}"
+        fi
+    fi
+}
 
 ###
 # 安装模式：minimal, full, server, desktop
@@ -163,9 +368,29 @@ get_config_file() {
             return 1
         fi
     else
-        # 在线模式：从 GitHub 下载
-        curl -sSL "https://raw.githubusercontent.com/eallion/dotfiles/refs/heads/main/$file_path" -o "$dest_file"
-        return $?
+        # 在线模式：从对应入口平台下载
+        local primary_url="${ONLINE_RAW_BASE_URL%/}/$file_path"
+        if curl -fsSL "$primary_url" -o "$dest_file" 2>/dev/null; then
+            return 0
+        else
+            echo "⚠ 从主要源 ($primary_url) 下载失败，尝试备用镜像源..."
+            local gh_raw_url
+            gh_raw_url=$(apply_gh_proxy "https://raw.githubusercontent.com/eallion/dotfiles/main/$file_path")
+            local fallback_candidates=(
+                "$gh_raw_url"
+                "https://cnb.cool/eallion/dotfiles/-/git/raw/main/$file_path"
+            )
+            for fb_url in "${fallback_candidates[@]}"; do
+                if [[ "$fb_url" != "$primary_url" ]]; then
+                    if curl -fsSL "$fb_url" -o "$dest_file" 2>/dev/null; then
+                        echo "✔ 备用镜像源下载成功: $fb_url"
+                        return 0
+                    fi
+                fi
+            done
+            echo "❌ 所有可用镜像源均下载失败: $file_path"
+            return 1
+        fi
     fi
 }
 
@@ -384,7 +609,14 @@ install_fisher_plugins() {
         echo "✔ Fisher 已安装，跳过安装。"
     else
         echo "▶ 正在安装 Fisher 插件管理器..."
-        fish -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" 2>/dev/null
+        local raw_fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish"
+        local fisher_url
+        fisher_url=$(apply_gh_proxy "$raw_fisher_url")
+        if ! curl -fsSL --connect-timeout 3 "$fisher_url" -o /tmp/fisher.fish 2>/dev/null; then
+            echo "⚠ 从加速源下载 Fisher 失败，尝试直连..."
+            fisher_url="$raw_fisher_url"
+        fi
+        fish -c "curl -sL '$fisher_url' | source && fisher install jorgebucaran/fisher" < /dev/null 2>/dev/null || true
         echo "✔ Fisher 安装完成"
     fi
 
@@ -409,7 +641,7 @@ install_fisher_plugins() {
     fi
 
     local installed_plugins
-    installed_plugins=$(fish -c "fisher list" 2>/dev/null)
+    installed_plugins=$(fish -c "fisher list" < /dev/null 2>/dev/null)
 
     local plugins_to_install=()
     local skipped_plugins=()
@@ -429,7 +661,7 @@ install_fisher_plugins() {
 
     if [[ ${#plugins_to_install[@]} -gt 0 ]]; then
         echo "▶ 正在安装 fisher 插件: ${plugins_to_install[*]}"
-        fish -c "fisher install ${plugins_to_install[*]}" 2>/dev/null
+        fish -c "fisher install ${plugins_to_install[*]}" < /dev/null 2>/dev/null
         echo "✔ fisher 插件安装完成"
     else
         echo "✔ 所有 fisher 插件均已安装。"
@@ -505,7 +737,9 @@ detect_system_info() {
 detect_system_info
 
 if [[ "$IS_DEBIAN_LIKE" == false ]]; then
-    echo "⚠ 警告: 本脚本专为 Debian / Ubuntu (Deb 系) 系统设计，当前系统可能无法保证兼容性。"
+    echo "❌ 错误: 本脚本专为 Debian / Ubuntu (Deb 系) 系统设计，仅支持 Deb 系 Linux 发行版。"
+    echo "当前系统 ($DISTRO_NAME $DISTRO_VERSION) 不受支持，已终止执行。"
+    exit 1
 fi
 
 ###
@@ -548,8 +782,11 @@ if [[ "$EUID" -eq 0 ]]; then
         if [[ -f "$SCRIPT_PATH" ]]; then
             su - "$USERNAME" -c "bash '$SCRIPT_PATH' $*"
         else
-            echo "⚠ 在线安装模式：请切换到 $USERNAME 后重新运行安装命令。"
+            echo "⚠ 在线安装模式：请切换到 $USERNAME 后重新运行安装命令："
             echo "  su - $USERNAME"
+            if [[ -n "$ONLINE_RAW_BASE_URL" ]]; then
+                echo "  curl -sSL $ONLINE_RAW_BASE_URL/setup.sh | bash -s -- $*"
+            fi
         fi
         exit 0
     fi
@@ -621,8 +858,9 @@ echo "------------------------------"
 if [[ "$EUID" -ne 0 ]]; then
     echo "▶ 检测到当前为普通用户。安装命令将使用 sudo 运行。"
     SUDO="sudo"
+    CURRENT_USER=$(whoami)
 
-    # 检查 sudo 是否安装
+    # 1. 检查 sudo 是否安装
     if ! command -v sudo &> /dev/null; then
         echo "❌ 未检测到 sudo 命令。"
         echo "你需要安装 sudo 才能继续。"
@@ -641,59 +879,52 @@ if [[ "$EUID" -ne 0 ]]; then
         fi
     fi
 
-    # 检查当前用户是否在 sudoers 中
-    CURRENT_USER=$(whoami)
-    if ! $SUDO -n true 2>/dev/null; then
-        echo "❌ 当前用户 $CURRENT_USER 没有 sudo 权限。"
-        echo ""
-        printf "是否通过 su 自动配置 sudoers（需要输入 root 密码）? (y/N) "
-        if read -t 15 AUTO_SUDO < /dev/tty; then :; else AUTO_SUDO="N"; echo ""; fi
-
-        if [[ "$AUTO_SUDO" =~ ^[Yy]$ ]]; then
-            echo "▶ 请输入 root 密码（以下操作以 root 身份执行）："
-            SUDOERS_CMD="mkdir -p /etc/sudoers.d && echo '$CURRENT_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-$CURRENT_USER && chmod 440 /etc/sudoers.d/90-$CURRENT_USER"
-            if su root -c "$SUDOERS_CMD" < /dev/tty; then
-                echo "✔ sudoers 配置成功！"
-                # sudoers 文件写入后无需重登录，立即验证
-                if ! $SUDO -n true 2>/dev/null; then
-                    echo "⚠ 配置已写入，但当前会话尚未生效，请重新登录后再运行本脚本。"
-                    exit 0
+    # 2. 检查当前用户是否已经具备 Sudo 免密码权限
+    if $SUDO -n true 2>/dev/null; then
+        echo "✔ 当前用户 $CURRENT_USER 已具备 sudo 免密码权限，跳过免密配置。"
+    else
+        # 3. 未免密时：测试并验证普通用户的 sudo 权限
+        echo "ℹ 当前用户尚未配置 sudo 免密码。"
+        echo "▶ 正在验证 sudo 权限（若有提示请输入用户 $CURRENT_USER 的密码）："
+        if $SUDO -v; then
+            echo "✔ sudo 权限验证成功。"
+            echo "▶ 正在为当前用户配置 sudo 免密码 (NOPASSWD)..."
+            if echo "$CURRENT_USER ALL=(ALL) NOPASSWD:ALL" | $SUDO tee /etc/sudoers.d/90-"$CURRENT_USER" > /dev/null; then
+                $SUDO chmod 440 /etc/sudoers.d/90-"$CURRENT_USER"
+                if command -v visudo &>/dev/null && ! $SUDO visudo -c -f /etc/sudoers.d/90-"$CURRENT_USER" > /dev/null 2>&1; then
+                    echo "⚠ sudoers 语法校验失败，已自动回滚以避免 sudo 损坏。"
+                    $SUDO rm -f /etc/sudoers.d/90-"$CURRENT_USER"
+                else
+                    echo "✔ sudo 免密码配置成功！后续安装步骤将自动免密执行。"
                 fi
-                echo "✔ sudo 权限验证通过，继续执行..."
             else
-                echo "❌ 自动配置失败（root 密码错误或 su 不可用）。"
-                echo ""
-                echo "请手动以 root 身份执行以下命令后，重新运行本脚本："
-                echo "  echo '$CURRENT_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-$CURRENT_USER"
-                exit 1
+                echo "⚠ 写入 sudoers 失败，后续步骤可能需要手动输入密码。"
             fi
         else
-            echo ""
-            echo "请手动以 root 身份执行以下任一命令后，重新运行本脚本："
-            echo "  方法一: usermod -aG sudo $CURRENT_USER"
-            echo "  方法二: echo '$CURRENT_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-$CURRENT_USER"
-            echo ""
-            echo "或者直接以 root 运行本脚本，脚本会引导你创建/切换用户。"
-            exit 1
-        fi
-    fi
+            # 用户不在 sudoers 中，尝试通过 su 申请 root 权限
+            echo "❌ 当前用户 $CURRENT_USER 没有 sudo 权限。"
+            printf "是否通过 su 自动配置 sudoers（需要输入 root 密码）? (y/N) "
+            if read -t 15 AUTO_SUDO < /dev/tty; then :; else AUTO_SUDO="N"; echo ""; fi
 
-    echo "⚠️  安全警告: 即将配置 sudo 免密码 (NOPASSWD)！"
-    echo "   此配置允许当前用户无需密码执行任何 root 命令。"
-    echo "   如果这是共享电脑或服务器，可能存在安全风险。"
-    echo "   如需修改，可编辑: /etc/sudoers.d/90-$CURRENT_USER"
-    echo "▶ 正在配置 sudo 免密码..."
-    # 尝试配置免密
-    if echo "$CURRENT_USER ALL=(ALL) NOPASSWD:ALL" | $SUDO tee /etc/sudoers.d/90-$CURRENT_USER > /dev/null 2>&1; then
-        $SUDO chmod 440 /etc/sudoers.d/90-$CURRENT_USER
-        if command -v visudo &>/dev/null && ! $SUDO visudo -c -f /etc/sudoers.d/90-$CURRENT_USER > /dev/null 2>&1; then
-            echo "⚠ sudoers 语法校验失败，已自动回滚以避免 sudo 损坏。"
-            $SUDO rm -f /etc/sudoers.d/90-$CURRENT_USER
-        else
-            echo "✔ sudo 免密码配置成功！"
+            if [[ "$AUTO_SUDO" =~ ^[Yy]$ ]]; then
+                echo "▶ 请输入 root 密码（以下操作以 root 身份执行）："
+                SUDOERS_CMD="mkdir -p /etc/sudoers.d && echo '$CURRENT_USER ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-$CURRENT_USER && chmod 440 /etc/sudoers.d/90-$CURRENT_USER"
+                if su root -c "$SUDOERS_CMD" < /dev/tty; then
+                    echo "✔ sudoers 配置成功！"
+                    if ! $SUDO -n true 2>/dev/null; then
+                        echo "⚠ 配置已写入，但当前会话尚未生效，请重新登录后再运行本脚本。"
+                        exit 0
+                    fi
+                    echo "✔ sudo 权限验证通过，继续执行..."
+                else
+                    echo "❌ 自动配置失败（root 密码错误或 su 不可用）。"
+                    exit 1
+                fi
+            else
+                echo "请手动以 root 身份执行: usermod -aG sudo $CURRENT_USER 后重试。"
+                exit 1
+            fi
         fi
-    else
-        echo "⚠ sudo 免密码配置失败，脚本将继续运行，后续可能需要手动输入密码。"
     fi
 else
     SUDO=""
@@ -755,25 +986,58 @@ echo "▶ 检查目标 Shell 安装状态..."
 if [[ "$INSTALL_SHELL" == "fish" ]]; then
     echo "▶ 检查 Fish 安装状态..."
     if ! command -v fish &> /dev/null; then
-        echo "❌ 未检测到 fish，这是目标 shell 所需的。"
-        echo "请先手动安装 fish 后再运行此脚本。"
-        exit 1
+        echo "ℹ 未检测到 fish。"
+        printf "是否自动通过 apt 安装 fish? (Y/n) "
+        if read -t 15 AUTO_INSTALL_FISH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_FISH="Y"; echo ""; fi
+        [[ -z "$AUTO_INSTALL_FISH" ]] && AUTO_INSTALL_FISH="Y"
+
+        if [[ "$AUTO_INSTALL_FISH" =~ ^[Yy]$ ]]; then
+            echo "▶ 正在更新包管理器并安装 fish..."
+            $SUDO apt-get update -y && $SUDO apt-get install -y fish
+            if command -v fish &> /dev/null; then
+                echo "✔ fish 安装成功: $(fish --version 2>/dev/null | head -n1)"
+            else
+                echo "❌ fish 安装失败，请手动安装后重试。"
+                exit 1
+            fi
+        else
+            echo "❌ 未安装 fish，已终止安装配置。"
+            exit 1
+        fi
     else
-        echo "✔ fish 已安装。"
+        echo "✔ fish 已安装: $(fish --version 2>/dev/null | head -n1)"
     fi
 elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
     echo "▶ 检查 ZSH 安装状态..."
     if ! command -v zsh &> /dev/null; then
-        echo "❌ 未检测到 zsh，这是目标 shell 所需的。"
-        echo "请先手动安装 zsh 后再运行此脚本。"
-        exit 1
+        echo "ℹ 未检测到 zsh。"
+        printf "是否自动通过 apt 安装 zsh? (Y/n) "
+        if read -t 15 AUTO_INSTALL_ZSH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_ZSH="Y"; echo ""; fi
+        [[ -z "$AUTO_INSTALL_ZSH" ]] && AUTO_INSTALL_ZSH="Y"
+
+        if [[ "$AUTO_INSTALL_ZSH" =~ ^[Yy]$ ]]; then
+            echo "▶ 正在更新包管理器并安装 zsh..."
+            $SUDO apt-get update -y && $SUDO apt-get install -y zsh
+            if command -v zsh &> /dev/null; then
+                echo "✔ zsh 安装成功: $(zsh --version 2>/dev/null | head -n1)"
+            else
+                echo "❌ zsh 安装失败，请手动安装后重试。"
+                exit 1
+            fi
+        else
+            echo "❌ 未安装 zsh，已终止安装配置。"
+            exit 1
+        fi
     else
-        echo "✔ zsh 已安装。"
+        echo "✔ zsh 已安装: $(zsh --version 2>/dev/null | head -n1)"
     fi
 else
     echo "▶ 目标 shell 为 bash，跳过 shell 安装检查。"
 fi
 echo "------------------------------"
+
+# --- 配置 GitHub 资源加速节点 ---
+select_github_proxy
 
 # --- 更新包管理器与安装基础工具 ---
 install_basic_tools() {
@@ -878,10 +1142,24 @@ esac
 
 if [[ "$INSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
     echo "▶ 正在安装 Starship..."
-    if bash -lc "curl -sS https://starship.rs/install.sh | sh -s -- --yes"; then
-        echo "✔ Starship 安装成功！"
+    TEMP_STARSHIP_SH=$(mktemp)
+    TEMP_FILES+=("$TEMP_STARSHIP_SH")
+    starship_sh_url="https://starship.rs/install.sh"
+    starship_gh_url=$(apply_gh_proxy "https://raw.githubusercontent.com/starship/starship/master/install/install.sh")
+
+    if curl -fsSL --connect-timeout 3 -m 10 "$starship_sh_url" -o "$TEMP_STARSHIP_SH" 2>/dev/null || \
+       curl -fsSL --connect-timeout 3 -m 10 "$starship_gh_url" -o "$TEMP_STARSHIP_SH" 2>/dev/null; then
+        if [[ -n "$GH_PROXY" ]]; then
+            sed -i "s|https://github.com/|${GH_PROXY}https://github.com/|g" "$TEMP_STARSHIP_SH"
+        fi
+        if sh "$TEMP_STARSHIP_SH" --yes < /dev/null; then
+            echo "✔ Starship 安装成功！"
+        else
+            echo "⚠ Starship 安装脚本执行异常，将继续尝试后续配置。"
+        fi
+        rm -f "$TEMP_STARSHIP_SH"
     else
-        echo "⚠ Starship 安装脚本执行异常，将继续尝试后续配置。"
+        echo "⚠ 无法下载 Starship 安装脚本，将继续尝试后续配置。"
     fi
     echo "------------------------------"
 fi
@@ -982,7 +1260,8 @@ if command -v starship &> /dev/null; then
                 if starship preset plain-text-symbols -o "$HOME/.config/starship-plain.toml" --force; then
                     echo "✔ 已配置无 Nerd 字体兼容主题: plain-text-symbols"
                 else
-                    echo "⚠ 生成 plain-text-symbols 兼容主题失败。"
+                    echo "⚠ 生成 plain-text-symbols 兼容主题失败，尝试从仓库源获取..."
+                    get_config_file ".config/starship-plain.toml" "$HOME/.config/starship-plain.toml" 2>/dev/null || true
                 fi
                 ;;
             2)
@@ -1037,8 +1316,16 @@ if [[ "$INSTALL_FONTS" =~ ^[Yy]$ ]]; then
         FONT_TEMP=$(mktemp -d)
         TEMP_FILES+=("$FONT_TEMP")
         FONT_URL="https://github.com/SpaceTimee/Fusion-JetBrainsMapleMono/releases/latest/download/JetBrainsMapleMono-NF-XX-XX-XX.zip"
+        DOWNLOAD_FONT_URL=$(apply_gh_proxy "$FONT_URL")
 
-        if curl -fsSL "$FONT_URL" -o "$FONT_TEMP/font.zip" || wget -q "$FONT_URL" -O "$FONT_TEMP/font.zip"; then
+        if ! curl -fsSL "$DOWNLOAD_FONT_URL" -o "$FONT_TEMP/font.zip" 2>/dev/null && ! wget -q "$DOWNLOAD_FONT_URL" -O "$FONT_TEMP/font.zip" 2>/dev/null; then
+            if [[ "$DOWNLOAD_FONT_URL" != "$FONT_URL" ]]; then
+                echo "⚠ 从加速节点下载字体失败，尝试直连..."
+                curl -fsSL "$FONT_URL" -o "$FONT_TEMP/font.zip" 2>/dev/null || wget -q "$FONT_URL" -O "$FONT_TEMP/font.zip" 2>/dev/null || true
+            fi
+        fi
+
+        if [[ -s "$FONT_TEMP/font.zip" ]]; then
             unzip -qo "$FONT_TEMP/font.zip" -d "$FONT_TEMP/unzipped" 2>/dev/null || true
             find "$FONT_TEMP/unzipped" -type f \( -name "*.ttf" -o -name "*.otf" \) -exec cp -f {} "$FONT_DIR/" \; 2>/dev/null || true
             rm -rf "$FONT_TEMP"
@@ -1081,6 +1368,7 @@ if [[ "$INSTALL_SHELL" == "fish" ]]; then
         get_config_file ".config/fish/config.fish" "$HOME/.config/fish/config.fish"
         get_config_file ".config/fish/functions/aliases.fish" "$HOME/.config/fish/functions/aliases.fish"
         get_config_file ".config/fish/fish_plugins" "$HOME/.config/fish/fish_plugins"
+        get_config_file ".config/starship-plain.toml" "$HOME/.config/starship-plain.toml" 2>/dev/null || true
         get_config_file ".login_info.sh" "$HOME/.login_info.sh"
 
         if command -v nvim &> /dev/null; then
@@ -1146,6 +1434,7 @@ elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
         echo "▶ 正在下载 .zshrc .aliases .login_info.sh..."
         get_config_file ".zshrc" "$HOME/.zshrc"
         get_config_file ".aliases" "$HOME/.aliases"
+        get_config_file ".config/starship-plain.toml" "$HOME/.config/starship-plain.toml" 2>/dev/null || true
         get_config_file ".login_info.sh" "$HOME/.login_info.sh"
 
         if command -v nvim &> /dev/null; then
@@ -1177,8 +1466,16 @@ else
     if [[ "$INSTALL_OMB" =~ ^[Yy]$ ]]; then
         echo "▶ 正在安装 Oh My Bash..."
         if [ ! -d "$HOME/.oh-my-bash" ]; then
-            bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" "" --unattended
-            echo "✔ Oh My Bash 安装成功！"
+            raw_omb_url="https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh"
+            omb_url=$(apply_gh_proxy "$raw_omb_url")
+            omb_repo=$(apply_gh_proxy "https://github.com/ohmybash/oh-my-bash.git")
+
+            OSH_REPO="$omb_repo" bash -c "$(curl -fsSL "$omb_url" 2>/dev/null || curl -fsSL "$raw_omb_url")" "" --unattended 2>/dev/null || true
+            if [ -d "$HOME/.oh-my-bash" ]; then
+                echo "✔ Oh My Bash 安装成功！"
+            else
+                echo "⚠ Oh My Bash 自动安装未能完成，脚本将继续。"
+            fi
         else
             echo "✔ Oh My Bash 已经安装，跳过安装。"
         fi
@@ -1200,18 +1497,27 @@ if command -v starship &> /dev/null; then
     is_plain_env=false
     if [[ -n "$STARSHIP_PLAIN" && "$STARSHIP_PLAIN" != "0" ]]; then
         is_plain_env=true
-    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi)$ ]]; then
+    elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi|console)$ ]]; then
         is_plain_env=true
     elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" ]]; then
         is_plain_env=true
-    elif [[ -n "$DISPLAY" && -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" != "xterm-ghostty" ]]; then
-        is_plain_env=true
-    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && "$TERM" =~ xterm && -z "$COLORTERM" && "$TERM" != "xterm-ghostty" ]]; then
-        is_plain_env=true
+    elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && -z "$SSH_TTY" ]]; then
+        if [[ -z "$DISPLAY" && -z "$WAYLAND_DISPLAY" ]]; then
+            if [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
+                is_plain_env=true
+            fi
+        elif [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
+            is_plain_env=true
+        fi
     fi
 
-    if [[ "$is_plain_env" == true && -f "$HOME/.config/starship-plain.toml" ]]; then
-        export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+    if [[ "$is_plain_env" == true ]]; then
+        if [[ ! -f "$HOME/.config/starship-plain.toml" ]]; then
+            starship preset plain-text-symbols -o "$HOME/.config/starship-plain.toml" --force >/dev/null 2>&1 || true
+        fi
+        if [[ -f "$HOME/.config/starship-plain.toml" ]]; then
+            export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+        fi
     else
         unset STARSHIP_CONFIG
     fi
@@ -1238,11 +1544,14 @@ EOF
         echo "▶ 正在下载 .bashrc .aliases .login_info.sh..."
         get_config_file ".bashrc" "$HOME/.bashrc"
         get_config_file ".aliases" "$HOME/.aliases"
+        get_config_file ".config/starship-plain.toml" "$HOME/.config/starship-plain.toml" 2>/dev/null || true
         get_config_file ".login_info.sh" "$HOME/.login_info.sh"
         
-        # [新增] 如果安装了 neovim，添加别名
+        # 如果安装了 neovim，添加别名 (判重)
         if command -v nvim &> /dev/null; then
-            echo "alias vim='nvim'" >> "$HOME/.aliases"
+            if ! grep -q "alias vim='nvim'" "$HOME/.aliases" 2>/dev/null; then
+                echo "alias vim='nvim'" >> "$HOME/.aliases"
+            fi
             echo "✔ 已添加 alias vim=nvim 到 .aliases"
         fi
         
@@ -1465,7 +1774,7 @@ else
         TEMP_DOCKER_SH=$(mktemp)
         TEMP_FILES+=("$TEMP_DOCKER_SH")
         if curl -fsSL https://get.docker.com -o "$TEMP_DOCKER_SH"; then
-            $SUDO sh "$TEMP_DOCKER_SH" || echo "⚠ Docker 安装脚本执行异常，后续配置将继续尝试。"
+            $SUDO sh "$TEMP_DOCKER_SH" < /dev/null || echo "⚠ Docker 安装脚本执行异常，后续配置将继续尝试。"
             rm -f "$TEMP_DOCKER_SH"
             if command -v docker &> /dev/null; then
                 echo "✔ Docker 安装成功: $(docker --version 2>/dev/null | head -n1)"
@@ -1640,8 +1949,9 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
             if [[ -z "$GITHUB_USERNAME" ]]; then
                 echo "❌ GitHub 用户名不能为空，跳过公钥配置。"
             else
-                echo "▶ 正在从 https://github.com/${GITHUB_USERNAME}.keys 获取公钥..."
-                GH_KEYS=$(curl -fsSL "https://github.com/${GITHUB_USERNAME}.keys" 2>/dev/null || true)
+                gh_keys_url="https://github.com/${GITHUB_USERNAME}.keys"
+                echo "▶ 正在获取 GitHub 公钥 ($gh_keys_url)..."
+                GH_KEYS=$(curl -fsSL "$gh_keys_url" 2>/dev/null || curl -fsSL "$(apply_gh_proxy "$gh_keys_url")" 2>/dev/null || true)
                 VALID_KEYS=$(echo "$GH_KEYS" | grep -E '^(ssh-(rsa|ed25519)|ecdsa-|sk-)' || true)
                 if [[ -n "$VALID_KEYS" ]]; then
                     KEY_COUNT=$(echo "$VALID_KEYS" | grep -c -E '^(ssh-(rsa|ed25519)|ecdsa-|sk-)')
@@ -1713,7 +2023,7 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
         fi
 
         for u in "${TARGET_USERS_LIST[@]}"; do
-            local u_home=""
+            u_home=""
             if [[ "$u" == "root" ]]; then
                 u_home="/root"
             else
@@ -1952,7 +2262,13 @@ if [[ "$INSTALL_UFW_DOCKER" =~ ^[Yy]$ ]]; then
         echo "▶ 正在安装 UFW Docker..."
         
         # 下载 ufw-docker 脚本
-        $SUDO wget -O /usr/local/bin/ufw-docker https://github.com/chaifeng/ufw-docker/raw/master/ufw-docker
+        raw_ufw_docker_url="https://github.com/chaifeng/ufw-docker/raw/master/ufw-docker"
+        ufw_docker_url=$(apply_gh_proxy "$raw_ufw_docker_url")
+        if ! $SUDO curl -fsSL "$ufw_docker_url" -o /usr/local/bin/ufw-docker 2>/dev/null; then
+            if ! $SUDO wget -qO /usr/local/bin/ufw-docker "$ufw_docker_url" 2>/dev/null; then
+                $SUDO curl -fsSL "$raw_ufw_docker_url" -o /usr/local/bin/ufw-docker 2>/dev/null || $SUDO wget -qO /usr/local/bin/ufw-docker "$raw_ufw_docker_url" 2>/dev/null || true
+            fi
+        fi
         $SUDO chmod +x /usr/local/bin/ufw-docker
         
         # 修改 UFW 配置以支持 Docker
@@ -2076,20 +2392,93 @@ fi
 
 echo "------------------------------"
 echo "=== 配置完成！==="
+
+# 检测外层调用 Shell
+CALLER_SHELL=""
+curr_p=$PPID
+while [[ -n "$curr_p" && "$curr_p" -gt 1 ]]; do
+    p_comm=""
+    if [[ -r "/proc/$curr_p/comm" ]]; then
+        p_comm=$(cat "/proc/$curr_p/comm" 2>/dev/null)
+    elif command -v ps &>/dev/null; then
+        p_comm=$(ps -p "$curr_p" -o comm= 2>/dev/null)
+    fi
+    p_comm=$(basename "${p_comm%% *}")
+    if [[ "$p_comm" == "fish" || "$p_comm" == "zsh" || "$p_comm" == "bash" ]]; then
+        CALLER_SHELL="$p_comm"
+        break
+    fi
+    if [[ -r "/proc/$curr_p/stat" ]]; then
+        curr_p=$(awk '{print $4}' "/proc/$curr_p/stat" 2>/dev/null)
+    else
+        break
+    fi
+done
+[[ -z "$CALLER_SHELL" && -n "$SHELL" ]] && CALLER_SHELL=$(basename "$SHELL")
+
+# 检测系统默认登录 Shell
+DEFAULT_LOGIN_SHELL=""
+if command -v getent &>/dev/null; then
+    DEFAULT_LOGIN_SHELL=$(getent passwd "${CURRENT_USER:-$(whoami)}" 2>/dev/null | awk -F: '{print $NF}')
+elif [ -f /etc/passwd ]; then
+    DEFAULT_LOGIN_SHELL=$(grep "^${CURRENT_USER:-$(whoami)}:" /etc/passwd 2>/dev/null | awk -F: '{print $NF}')
+fi
+DEFAULT_LOGIN_SHELL=$(basename "${DEFAULT_LOGIN_SHELL:-unknown}")
+
 echo "请重启你的终端或运行以下命令以应用所有更改："
+echo ""
 
 if [[ "$INSTALL_SHELL" == "fish" ]]; then
-    echo "exec fish"
-    echo ""
-    echo "提示：如果你想让 Fish 成为默认 shell，请运行："
-    echo "chsh -s \$(which fish)"
+    if [[ "$CALLER_SHELL" == "fish" ]]; then
+        echo "  source ~/.config/fish/config.fish"
+        echo ""
+        echo "（或者运行 exec fish 完全重载会话）"
+    else
+        echo "  exec fish"
+    fi
+
+    if [[ "$DEFAULT_LOGIN_SHELL" != "fish" ]]; then
+        echo ""
+        echo "提示：如果你想让 Fish 成为默认登录 Shell，请运行（免密）："
+        echo "  sudo chsh -s \$(which fish) \$USER"
+    fi
+
 elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
-    echo "exec zsh"
-    echo ""
-    echo "提示：如果你想让 Zsh 成为默认 shell，请运行："
-    echo "chsh -s \$(which zsh)"
+    if [[ "$CALLER_SHELL" == "zsh" ]]; then
+        echo "  source ~/.zshrc"
+        echo ""
+        echo "（或者运行 exec zsh 完全重载会话）"
+    else
+        echo "  exec zsh"
+    fi
+
+    if [[ "$DEFAULT_LOGIN_SHELL" != "zsh" ]]; then
+        echo ""
+        echo "提示：如果你想让 Zsh 成为默认登录 Shell，请运行（免密）："
+        echo "  sudo chsh -s \$(which zsh) \$USER"
+    fi
+
 else
-    echo "source ~/.bashrc"
+    # 目标为 bash
+    if [[ "$CALLER_SHELL" == "bash" ]]; then
+        echo "  source ~/.bashrc"
+        echo ""
+        echo "（或者运行 exec bash 完全重载会话）"
+    else
+        echo "  exec bash"
+    fi
+
+    if [[ "$DEFAULT_LOGIN_SHELL" != "bash" ]]; then
+        echo ""
+        echo "提示：如果你想让 Bash 成为默认登录 Shell，请运行（免密）："
+        echo "  sudo chsh -s \$(which bash) \$USER"
+    fi
+fi
+
+if [[ "$ADD_DOCKER_GRP" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "提示：你刚刚将用户添加到了 docker 用户组，若要免 sudo 运行 docker，需注销重登或运行："
+    echo "  newgrp docker"
 fi
 
 echo ""

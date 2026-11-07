@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # 本地安装脚本入口点
+# 注意：本脚本专为 Debian / Ubuntu (Deb 系) 系统设计，仅支持 Deb 系 Linux 发行版
 # 用法: ./install.sh [bash|zsh|fish] [--minimal|--full|--server|--desktop]
 #       ./install.sh --rollback
 #       ./install.sh --clean-backup

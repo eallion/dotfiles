@@ -2,29 +2,46 @@
 
 My dotfiles, keep it simple.
 
+> **注意**：本脚本专为 **Debian / Ubuntu (Deb 系)** 系统设计，仅支持 Deb 系 Linux 发行版。
+
 ### Setup
 
-#### 方法一：通过 curl 直接安装
+#### 方法一：通过 curl 在线一键安装
 
-**安装 Bash 配置（适用于服务器）：**
+脚本会自动根据入口链接识别并锁定当前平台下载源；如遇单个文件网络波动，亦会自动尝试备用镜像源。
 
+**1. GitHub 源（海外推荐 / 默认）：**
+
+- Fish (开发 / 桌面推荐)
 ```bash
-curl -sSL https://s.e5n.cc/dotfiles | bash -s -- bash
+curl -fsSL https://raw.githubusercontent.com/eallion/dotfiles/main/setup.sh | bash -s -- fish
 ```
 
-**安装 Zsh 配置：**
-
+- Bash (服务器 / 通用推荐)
 ```bash
-curl -sSL https://s.e5n.cc/dotfiles | bash -s -- zsh
+curl -fsSL https://raw.githubusercontent.com/eallion/dotfiles/main/setup.sh | bash -s -- bash
 ```
 
-**安装 Fish 配置（适用于桌面/开发环境）：**
-
+- Zsh
 ```bash
-# sudo apt update && sudo apt install -y fish
-# chsh -s /usr/bin/fish
+curl -fsSL https://raw.githubusercontent.com/eallion/dotfiles/main/setup.sh | bash -s -- zsh
+```
 
-curl -sSL https://s.e5n.cc/dotfiles | bash -s -- fish
+**2. CNB 镜像源（国内推荐）：**
+
+- Fish (开发 / 桌面推荐)
+```bash
+curl -fsSL https://cnb.cool/eallion/dotfiles/-/git/raw/main/setup.sh | bash -s -- fish
+```
+
+- Bash (服务器 / 通用推荐)
+```bash
+curl -fsSL https://cnb.cool/eallion/dotfiles/-/git/raw/main/setup.sh | bash -s -- bash
+```
+
+- Zsh
+```bash
+curl -fsSL https://cnb.cool/eallion/dotfiles/-/git/raw/main/setup.sh | bash -s -- zsh
 ```
 
 #### 方法二：通过参数指定（推荐）
@@ -32,35 +49,45 @@ curl -sSL https://s.e5n.cc/dotfiles | bash -s -- fish
 克隆仓库后运行：
 
 ```bash
-# 克隆仓库
-git clone https://github.com/eallion/dotfiles.git
-cd dotfiles
+git clone https://github.com/eallion/dotfiles.git && cd dotfiles
+```
 
-# 安装 bash 配置
-./install.sh bash
-
-# 安装 zsh 配置
-./install.sh zsh
-
-# 安装 fish 配置
+- 安装 Fish 配置
+```bash
 ./install.sh fish
+```
+
+- 安装 Bash 配置
+```bash
+./install.sh bash
+```
+
+- 安装 Zsh 配置
+```bash
+./install.sh zsh
 ```
 
 #### 安装模式
 
 可以通过第二个参数指定安装模式，自动化安装流程：
 
+- 最小模式（仅安装 Shell 配置，跳过所有工具安装）
 ```bash
-# 最小模式：仅安装 Shell 配置，跳过所有工具安装
 ./install.sh bash --minimal
+```
 
-# 完整模式：安装所有工具和配置，无需交互
+- 完整模式（安装所有工具和配置，无需交互）
+```bash
 ./install.sh fish --full
+```
 
-# 服务器模式：安装服务器常用工具（curl/wget/git），跳过 GUI 相关
+- 服务器模式（安装服务器常用工具，跳过 GUI 相关）
+```bash
 ./install.sh bash --server
+```
 
-# 桌面模式：安装完整工具链 + 字体，适合开发环境
+- 桌面模式（安装完整工具链 + 字体，适合开发环境）
+```bash
 ./install.sh fish --desktop
 ```
 
@@ -77,7 +104,6 @@ cd dotfiles
 如果安装后需要恢复之前的配置：
 
 ```bash
-# 回滚到安装前的配置
 ./install.sh --rollback
 ```
 
@@ -88,7 +114,6 @@ cd dotfiles
 如果不再需要备份文件，可以清除所有备份：
 
 ```bash
-# 清除所有备份
 ./install.sh --clean-backup
 ```
 

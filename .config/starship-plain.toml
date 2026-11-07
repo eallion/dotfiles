@@ -1,0 +1,88 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+continuation_prompt = "[.](bright-black) "
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[x](bold red)"
+vimcmd_symbol = "[<](bold green)"
+vimcmd_visual_symbol = "[<](bold yellow)"
+vimcmd_replace_symbol = "[<](bold purple)"
+vimcmd_replace_one_symbol = "[<](bold purple)"
+
+[directory]
+read_only = " ro"
+
+[git_branch]
+symbol = "git "
+
+[git_commit]
+tag_symbol = " tag "
+
+[git_status]
+ahead = ">"
+behind = "<"
+diverged = "<>"
+renamed = "r"
+deleted = "x"
+
+[aws]
+symbol = "aws "
+
+[azure]
+symbol = "az "
+
+[battery]
+full_symbol = "full "
+charging_symbol = "charging "
+discharging_symbol = "discharging "
+unknown_symbol = "unknown "
+empty_symbol = "empty "
+
+[c]
+symbol = "C "
+
+[cpp]
+symbol = "C++ "
+
+[conda]
+symbol = "conda "
+
+[container]
+symbol = "container "
+
+[dart]
+symbol = "dart "
+
+[deno]
+symbol = "deno "
+
+[docker_context]
+symbol = "docker "
+
+[golang]
+symbol = "go "
+
+[java]
+symbol = "java "
+
+[kotlin]
+symbol = "kt "
+
+[nodejs]
+symbol = "node "
+
+[package]
+symbol = "pkg "
+
+[python]
+symbol = "py "
+
+[ruby]
+symbol = "rb "
+
+[rust]
+symbol = "rs "
+
+[sudo]
+symbol = "sudo "

@@ -7,9 +7,7 @@ case $- in
     *) return;;
 esac
 
-export PATH="$HOME/.local/bin:$PATH"
-
-export PATH=$PATH:/var/lib/flatpak/exports/bin
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:/usr/local/go/bin:/var/lib/flatpak/exports/bin:$PATH"
 
 # Path to your oh-my-bash installation.
 export OSH="$HOME/.oh-my-bash"
@@ -164,9 +162,17 @@ if command -v starship &>/dev/null; then
   else
     unset STARSHIP_CONFIG
   fi
+
+  # 如果未安装 Oh My Bash，或者 OMB 未启用 starship 插件，直接在此初始化
+  if [[ ! -d "$OSH" ]] || [[ ! -f "$OSH/custom/plugins/starship/starship.plugin.sh" ]]; then
+    eval "$(starship init bash)"
+  fi
 fi
 
-source "$OSH"/oh-my-bash.sh
+# Oh My Bash (仅在已安装时加载)
+if [[ -d "$OSH" && -f "$OSH/oh-my-bash.sh" ]]; then
+  source "$OSH"/oh-my-bash.sh
+fi
 
 # User configuration
 # export MANPATH="/usr/local/man:$MANPATH"
@@ -197,9 +203,23 @@ source "$OSH"/oh-my-bash.sh
 # alias ohmybash="mate ~/.oh-my-bash"
 
 # Custom
-export EDITOR="vim"
+if command -v nvim &>/dev/null; then
+    export EDITOR="nvim"
+else
+    export EDITOR="vim"
+fi
 export HISTSIZE=10000
 export HISTFILESIZE=10000
+
+# FZF (命令行模糊搜索)
+if command -v fzf &>/dev/null; then
+    eval "$(fzf --bash)"
+fi
+
+# Zoxide (智能目录跳转)
+if command -v zoxide &>/dev/null; then
+    eval "$(zoxide init bash)"
+fi
 
 # Custom Aliases
 # 加载通用 Alias 文件

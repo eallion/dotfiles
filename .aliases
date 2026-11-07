@@ -91,7 +91,7 @@ alias rd=rmdir
 alias rm='warn_rm'
 alias sqlite="sqlite3"
 alias ugz='tar -xzvf'
-alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true)"
+alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true) && (command -v mise >/dev/null 2>&1 && mise up -q || true)"
 if command -v rg >/dev/null 2>&1; then
     alias grep='rg'
 fi
