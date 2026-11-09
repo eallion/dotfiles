@@ -81,6 +81,12 @@ if status is-interactive
 
     # Zoxide - 智能目录跳转
     if type -q zoxide
+        # 兼容 Fish 4.8+ (内置函数内嵌于二进制，磁盘无 $__fish_data_dir/functions/cd.fish) 与旧版 zoxide (< 0.9.9)
+        if not builtin functions --query __zoxide_cd_internal; and not test -f "$__fish_data_dir/functions/cd.fish"
+            if status get-file functions/cd.fish >/dev/null 2>&1
+                status get-file functions/cd.fish | string replace --regex -- '^function cd\s' 'function __zoxide_cd_internal ' | source
+            end
+        end
         zoxide init fish | source
     end
 end

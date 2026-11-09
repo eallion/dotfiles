@@ -1400,7 +1400,7 @@ if [[ "$INSTALL_SHELL" == "fish" ]]; then
         minimal) INSTALL_FISHER="N" ;;
         full|desktop) INSTALL_FISHER="Y" ;;
         *)
-            printf "是否安装 Fisher 及常见插件 (fycu, autopair, puffer, done, fzf.fish, zoxide.fish, colored-man)? (y/N) "
+            printf "是否安装 Fisher 及常见插件 (fycu, autopair, puffer, done, fzf.fish, colored-man)? (y/N) "
             if read -t 10 INSTALL_FISHER < /dev/tty; then :; else INSTALL_FISHER="N"; echo ""; fi
             ;;
     esac
