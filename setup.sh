@@ -1499,15 +1499,13 @@ if command -v starship &> /dev/null; then
         is_plain_env=true
     elif [[ "$TERM" =~ ^(linux|dumb|vt100|vt102|vt220|ansi|console)$ ]]; then
         is_plain_env=true
-    elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" ]]; then
+    elif [[ -n "$VNCDESKTOP" || -n "$VNC_PORT" || -n "$VNC_SOCKET" || -n "$XRDP_SESSION" || -n "$XRDP_SOCKET_PATH" ]]; then
         is_plain_env=true
     elif [[ -z "$SSH_CONNECTION" && -z "$SSH_CLIENT" && -z "$SSH_TTY" ]]; then
-        if [[ -z "$DISPLAY" && -z "$WAYLAND_DISPLAY" ]]; then
-            if [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
+        if [[ -z "$DISPLAY" && -z "$WAYLAND_DISPLAY" && -z "$VTE_VERSION" ]]; then
+            if [[ "$TERM" != "xterm-ghostty" && "$TERM" != "xterm-kitty" && ! "$TERM_PROGRAM" =~ ^(ghostty|kitty|WezTerm|vscode|iTerm\.app)$ ]]; then
                 is_plain_env=true
             fi
-        elif [[ "$TERM" != "xterm-ghostty" && "$TERM_PROGRAM" != "ghostty" ]]; then
-            is_plain_env=true
         fi
     fi
 

@@ -36,19 +36,16 @@ if status is-interactive
         # Linux 基础虚拟控制台、串口控制台或无格式终端 (物理控制台 TTY1-6、串口 ttyS、无格式终端等)
         else if string match -rq '^(linux|dumb|vt100|vt102|vt220|ansi|console)$' "$TERM"
             set is_plain_env true
-        # VNC 远程桌面环境 (TigerVNC, TightVNC, x11vnc, TurboVNC, XRDP 等)
-        else if test -n "$VNCDESKTOP"; or test -n "$VNC_PORT"; or test -n "$VNC_SOCKET"
+        # VNC / XRDP 远程桌面环境 (TigerVNC, TightVNC, x11vnc, TurboVNC, XRDP 等)
+        else if test -n "$VNCDESKTOP"; or test -n "$VNC_PORT"; or test -n "$VNC_SOCKET"; or test -n "$XRDP_SESSION"; or test -n "$XRDP_SOCKET_PATH"
             set is_plain_env true
-        # Proxmox VE (PVE) Web 控制台、串口控制台或云厂商控制台 (无 SSH 连接且无本地 GUI 显示服务)
+        # Proxmox VE (PVE) Web 控制台、串口控制台或云厂商控制台 (无 SSH 连接、无本地 GUI 显示服务、且非本地桌面终端/VTE)
         # 在 PVE Web 控制台 (xterm.js / noVNC) 中，即使 COLORTERM=truecolor，浏览器也没有 Nerd Font
         else if test -z "$SSH_CONNECTION"; and test -z "$SSH_CLIENT"; and test -z "$SSH_TTY"
-            if test -z "$DISPLAY"; and test -z "$WAYLAND_DISPLAY"
-                if test "$TERM" != "xterm-ghostty"; and test "$TERM_PROGRAM" != "ghostty"
+            if test -z "$DISPLAY"; and test -z "$WAYLAND_DISPLAY"; and test -z "$VTE_VERSION"
+                if test "$TERM" != "xterm-ghostty"; and test "$TERM" != "xterm-kitty"; and not string match -rq '^(ghostty|kitty|WezTerm|vscode|iTerm\.app)$' "$TERM_PROGRAM"
                     set is_plain_env true
                 end
-            # 服务端本地图形会话 (有 DISPLAY 但没有 SSH 连接，通常为 VPS 上的桌面终端)
-            else if test "$TERM" != "xterm-ghostty"; and test "$TERM_PROGRAM" != "ghostty"
-                set is_plain_env true
             end
         end
 
