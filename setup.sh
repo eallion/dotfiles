@@ -666,6 +666,13 @@ install_fisher_plugins() {
     else
         echo "✔ 所有 fisher 插件均已安装。"
     fi
+
+    # 兼容性修复：针对 Fish <= 3.6 (如 Debian 12 自带 3.6.0)
+    # puffer-fish 的 _puffer_fish_expand_dot.fish 使用 commandline --search-field 时未屏蔽 stderr，导致按点号报错
+    local puffer_dot="$HOME/.config/fish/functions/_puffer_fish_expand_dot.fish"
+    if [[ -f "$puffer_dot" ]] && grep -q 'commandline --search-field >/dev/null' "$puffer_dot" 2>/dev/null && ! grep -q '2>&1' "$puffer_dot" 2>/dev/null; then
+        sed -i 's/commandline --search-field >\/dev\/null/commandline --search-field >\/dev\/null 2>\&1/' "$puffer_dot" 2>/dev/null || true
+    fi
 }
 
 ###

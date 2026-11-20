@@ -86,4 +86,13 @@ if status is-interactive
         end
         zoxide init fish | source
     end
+
+    # 兼容性修复：针对 Fish <= 3.6 (如 Debian 12 默认 3.6.0)
+    # puffer-fish 在 _puffer_fish_expand_dot.fish 中使用 commandline --search-field 未屏蔽 stderr 导致按点号报错
+    set -l puffer_dot "$HOME/.config/fish/functions/_puffer_fish_expand_dot.fish"
+    if test -f "$puffer_dot"
+        if command -q sed; and command grep -q 'commandline --search-field >/dev/null' "$puffer_dot" 2>/dev/null; and not command grep -q '2>&1' "$puffer_dot" 2>/dev/null
+            command sed -i 's/commandline --search-field >\/dev\/null/commandline --search-field >\/dev\/null 2>\&1/' "$puffer_dot" 2>/dev/null
+        end
+    end
 end
