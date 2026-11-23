@@ -1,7 +1,7 @@
 [user]
-    email = eallion.s+github@gmail.com
-    name = Charles Chin
-    signingkey = 327C873BCB0A151F1A599A3CE685DDDDDDDDDDDD
+    name = github-actions[bot]
+    email = 41898282+github-actions[bot]@users.noreply.github.com
+    # signingkey = 
 [credential]
     helper = manager
 [filter "lfs"]
@@ -10,7 +10,7 @@
     process = git-lfs filter-process
     required = true
 [commit]
-    gpgsign = true
+    gpgsign = false
 [core]
     quotepath = false
     editor = "vim -f -u NONE -i NONE -N"
@@ -20,7 +20,7 @@
     autocrlf = input
     compression = 1
 [tag]
-    forcesignannotated = true
+    forcesignannotated = false
 [push]
     default = simple
     followTags = true

@@ -1,0 +1,11 @@
+#!/bin/sh
+# 自动为第三方 .sources 文件补齐 amd64 架构，防止 i386 探测告警
+if dpkg --print-foreign-architectures 2>/dev/null | grep -q 'i386'; then
+    for f in /etc/apt/sources.list.d/*.sources; do
+        if [ -f "$f" ] && [ "$f" != "/etc/apt/sources.list.d/ubuntu.sources" ]; then
+            if ! grep -q '^Architectures:' "$f"; then
+                sed -i '/^Suites:/a Architectures: amd64' "$f" 2>/dev/null || true
+            fi
+        fi
+    done
+fi

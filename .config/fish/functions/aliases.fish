@@ -17,8 +17,6 @@ abbr --add dsh npx @deepseek-ai/dsh web
 abbr --add fl flatpak list
 abbr --add flr "flatpak list | rg"
 abbr --add gv ghostty --version
-abbr --add icat "kitten icat"
-abbr --add kssh "kitten ssh"
 abbr --add md mkdir -p
 abbr --add ml mise list
 abbr --add mlr "mise list | rg"
@@ -293,21 +291,79 @@ function ugz
     tar -xzvf $argv
 end
 
-function up
-    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
-    echo "│ 1. APT Update                                                                │"
-    echo "└──────────────────────────────────────────────────────────────────────────────┘"
-    sudo apt update; and sudo apt upgrade -y; and sudo apt autoremove; and sudo apt autoclean
-    echo ""
-    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
-    echo "│ 2. Flatpak Update                                                            │"
-    echo "└──────────────────────────────────────────────────────────────────────────────┘"
-    and type -q flatpak; and flatpak update -y
-    echo ""
-    echo "┌──────────────────────────────────────────────────────────────────────────────┐"
-    echo "│ 3. Mise Update                                                               │"
-    echo "└──────────────────────────────────────────────────────────────────────────────┘"
-    and type -q mise; and mise up -q
+function up -d "根据系统已安装的包管理器统一更新系统和工具"
+    set -l step 1
+
+    function __up_banner -a step title
+        set -l padded_text (string pad -r -w 76 "$step. $title")
+        echo "┌──────────────────────────────────────────────────────────────────────────────┐"
+        echo "│ $padded_text │"
+        echo "└──────────────────────────────────────────────────────────────────────────────┘"
+    end
+
+    # 1. APT
+    if type -q apt
+        __up_banner $step "APT Update & Upgrade"
+        # 若有新添加的旧版 .list 源，在 update 前自动完成现代化
+        if apt modernize-sources --assume-no 2>&1 | grep -q 'The following files need modernizing'
+            sudo apt modernize-sources -y 2>/dev/null
+        end
+        # 若系统开启了 i386 多架构，自动为缺失架构字段的第三方 .sources 源补齐 Architectures: amd64
+        if dpkg --print-foreign-architectures 2>/dev/null | grep -q 'i386'
+            for f in /etc/apt/sources.list.d/*.sources
+                if test -f "$f" -a "$f" != "/etc/apt/sources.list.d/ubuntu.sources"
+                    if not grep -q '^Architectures:' "$f"
+                        sudo sed -i '/^Suites:/a Architectures: amd64' "$f" 2>/dev/null
+                    end
+                end
+            end
+        end
+        sudo apt update; and sudo apt upgrade -y; and sudo apt autoremove -y; and sudo apt autoclean
+        set step (math $step + 1)
+        echo ""
+    end
+
+    # 2. deb-get
+    if type -q deb-get
+        __up_banner $step "deb-get Update & Upgrade"
+        sudo env DISABLE_APT=y deb-get update; and sudo env DISABLE_APT=y deb-get upgrade --dg-only
+        set step (math $step + 1)
+        echo ""
+    end
+
+    # 3. Snap
+    if type -q snap
+        __up_banner $step "Snap Refresh"
+        sudo snap refresh
+        set step (math $step + 1)
+        echo ""
+    end
+
+    # 4. Flatpak
+    if type -q flatpak
+        __up_banner $step "Flatpak Update"
+        flatpak update -y
+        set step (math $step + 1)
+        echo ""
+    end
+
+    # 5. Mise
+    if type -q mise
+        __up_banner $step "Mise Upgrade"
+        mise up -q
+        set step (math $step + 1)
+        echo ""
+    end
+
+    # 6. Fisher
+    if type -q fisher
+        __up_banner $step "Fisher Plugins Update"
+        fisher update
+        set step (math $step + 1)
+        echo ""
+    end
+
+    functions -e __up_banner
 end
 
 function dsns -d "Docker 容器内存统计与主机占用汇总"

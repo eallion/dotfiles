@@ -19,18 +19,33 @@ if [[ "$1" == "--clean-backup" || "$1" == "-c" ]]; then
     exec bash "$SCRIPT_DIR/setup.sh" --clean-backup
 fi
 
-SHELL_TYPE=${1:-bash}
-PROFILE="${2:-}"
+SHELL_TYPE=""
+PROFILE=""
 
-if [[ "$SHELL_TYPE" != "bash" && "$SHELL_TYPE" != "zsh" && "$SHELL_TYPE" != "fish" ]]; then
-    echo "❌ 错误: 不支持的 shell 类型 '$SHELL_TYPE'"
-    echo "支持的类型: bash, zsh, fish"
-    echo "用法: $0 [bash|zsh|fish] [--minimal|--full|--server|--desktop]"
-    exit 1
-fi
+for arg in "$@"; do
+    case "$arg" in
+        bash|zsh|fish)
+            SHELL_TYPE="$arg"
+            ;;
+        --minimal|minimal|--full|full|--server|server|--desktop|desktop)
+            PROFILE="$arg"
+            ;;
+        *)
+            echo "❌ 错误: 未知参数 '$arg'"
+            echo "支持的 Shell: bash, zsh, fish"
+            echo "支持的模式: --minimal, --full, --server, --desktop"
+            echo "用法: $0 [bash|zsh|fish] [--minimal|--full|--server|--desktop]"
+            exit 1
+            ;;
+    esac
+done
 
 echo "=== 本地安装模式 ==="
-echo "Shell 类型: $SHELL_TYPE"
+if [[ -n "$SHELL_TYPE" ]]; then
+    echo "Shell 类型: $SHELL_TYPE"
+else
+    echo "Shell 类型: 交互选择 / 自动检测"
+fi
 [[ -n "$PROFILE" ]] && echo "安装配置: $PROFILE"
 echo "------------------------------"
 

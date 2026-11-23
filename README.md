@@ -126,7 +126,7 @@ git clone https://github.com/eallion/dotfiles.git && cd dotfiles
 - **安全防护**：`mv`/`cp`/`rm` 增加安全提示，`rm` 自动关联 `trash-cli`。
 - sudo 免密码配置 (可选)。
 - 安装 [Starship](https://starship.rs/) 及 [Gruvbox Rainbow Preset](https://starship.rs/presets/gruvbox-rainbow)。
-- 可选安装 Git, Kitty 配置。
+- 可选安装 Git 配置。
 
 **Bash 特性 (Server)：**
 
@@ -191,32 +191,6 @@ mkdir -p ~/.fonts
 mv SmileySans-* ~/.fonts
 rm smiley-sans-v2.0.1.zip
 fc-cache -f -v
-```
-
-### Install Fcitx5-rime
-
-> https://github.com/fcitx/fcitx5-rime
-
-```bash
-sudo apt install fcitx5 fcitx5-rime fcitx5-configtool fcitx5-chinese-addons fcitx5-frontend-all im-config
-
-git clone https://github.com/rime/plum.git
-cd plum
-rime_frontend=fcitx5-rime bash rime-install --select :all lotem/rime-forge/lotem-packages.conf
-# pick: 16 21 12 .
-
-fcitx5-configtool
-
-# Add 中州韵
-# Customize
-
-wget https://raw.githubusercontent.com/eallion/dotfiles/refs/heads/main/.local/share/fcitx5/rime/custom_phrase.txt -O ~/.local/share/fcitx5/rime/custom_phrase.txt
-wget https://raw.githubusercontent.com/eallion/dotfiles/refs/heads/main/.local/share/fcitx5/rime/default.custom.yaml -O ~/.local/share/fcitx5/rime/default.custom.yaml
-wget https://raw.githubusercontent.com/eallion/dotfiles/refs/heads/main/.local/share/fcitx5/rime/wubi_pinyin.custom.yaml -O ~/.local/share/fcitx5/rime/wubi_pinyin.custom.yaml
-
-# Redeploy Rime
-
-# Install Kimpanel: https://extensions.gnome.org/extension/261/kimpanel
 ```
 
 ### Install Mise

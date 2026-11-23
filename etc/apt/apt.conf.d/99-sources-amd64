@@ -1,0 +1,8 @@
+// 自动为第三方 .sources 文件补齐 amd64 架构，防止 i386 探测告警
+APT::Update::Pre-Invoke {
+    "/usr/local/bin/apt-sources-fix-amd64 2>/dev/null || true";
+};
+
+DPkg::Post-Invoke {
+    "/usr/local/bin/apt-sources-fix-amd64 2>/dev/null || true";
+};

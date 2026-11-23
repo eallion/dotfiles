@@ -80,20 +80,97 @@ alias 8='cd -8'
 alias 9='cd -9'
 
 # General Aliases
+alias al='sudo apt list'
+alias alr='sudo apt list | rg'
 alias c=clear
 alias cp="cp -iv"
-alias icat="kitten icat"
-alias kssh="kitten ssh"
+alias di='sudo dpkg -i'
+alias dsh='npx @deepseek-ai/dsh web'
+alias fl='flatpak list'
+alias flr='flatpak list | rg'
+alias gv='ghostty --version'
 alias md='mkdir -p'
+alias ml='mise list'
+alias mlr='mise list | rg'
 alias mv="mv -iv"
 alias python="python3"
 alias rd=rmdir
 alias rm='warn_rm'
 alias sqlite="sqlite3"
 alias ugz='tar -xzvf'
-alias up="sudo apt update && sudo apt upgrade -y && sudo apt autoremove && sudo apt autoclean && (command -v flatpak >/dev/null 2>&1 && flatpak update -y || true) && (command -v mise >/dev/null 2>&1 && mise up -q || true)"
+up() {
+    local step=1
+
+    if command -v apt >/dev/null 2>&1; then
+        printf '┌──────────────────────────────────────────────────────────────────────────────┐\n'
+        printf '│ %-76s │\n' "$step. APT Update & Upgrade"
+        printf '└──────────────────────────────────────────────────────────────────────────────┘\n'
+        # 若有新添加的旧版 .list 源，在 update 前自动完成现代化
+        if apt modernize-sources --assume-no 2>&1 | grep -q 'The following files need modernizing'; then
+            sudo apt modernize-sources -y 2>/dev/null
+        fi
+        # 若开启了 i386 多架构，自动为缺失架构字段的第三方 .sources 源补齐 Architectures: amd64
+        if dpkg --print-foreign-architectures 2>/dev/null | grep -q 'i386'; then
+            for f in /etc/apt/sources.list.d/*.sources; do
+                if [ -f "$f" ] && [ "$f" != "/etc/apt/sources.list.d/ubuntu.sources" ]; then
+                    if ! grep -q '^Architectures:' "$f"; then
+                        sudo sed -i '/^Suites:/a Architectures: amd64' "$f" 2>/dev/null || true
+                    fi
+                fi
+            done
+        fi
+        sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y && sudo apt autoclean
+        step=$((step + 1))
+        echo ""
+    fi
+
+    if command -v deb-get >/dev/null 2>&1; then
+        printf '┌──────────────────────────────────────────────────────────────────────────────┐\n'
+        printf '│ %-76s │\n' "$step. deb-get Update & Upgrade"
+        printf '└──────────────────────────────────────────────────────────────────────────────┘\n'
+        sudo env DISABLE_APT=y deb-get update && sudo env DISABLE_APT=y deb-get upgrade --dg-only
+        step=$((step + 1))
+        echo ""
+    fi
+
+    if command -v snap >/dev/null 2>&1; then
+        printf '┌──────────────────────────────────────────────────────────────────────────────┐\n'
+        printf '│ %-76s │\n' "$step. Snap Refresh"
+        printf '└──────────────────────────────────────────────────────────────────────────────┘\n'
+        sudo snap refresh
+        step=$((step + 1))
+        echo ""
+    fi
+
+    if command -v flatpak >/dev/null 2>&1; then
+        printf '┌──────────────────────────────────────────────────────────────────────────────┐\n'
+        printf '│ %-76s │\n' "$step. Flatpak Update"
+        printf '└──────────────────────────────────────────────────────────────────────────────┘\n'
+        flatpak update -y
+        step=$((step + 1))
+        echo ""
+    fi
+
+    if command -v mise >/dev/null 2>&1; then
+        printf '┌──────────────────────────────────────────────────────────────────────────────┐\n'
+        printf '│ %-76s │\n' "$step. Mise Upgrade"
+        printf '└──────────────────────────────────────────────────────────────────────────────┘\n'
+        mise up -q
+        step=$((step + 1))
+        echo ""
+    fi
+}
+
+if command -v trash >/dev/null 2>&1; then
+    alias t='trash'
+fi
+
 if command -v rg >/dev/null 2>&1; then
     alias grep='rg'
+fi
+
+if command -v nvim >/dev/null 2>&1; then
+    alias vim='nvim'
 fi
 
 # Docker Aliases
@@ -134,12 +211,111 @@ alias dlast='docker exec -it $(docker ps -lq) bash'
 alias dlogs='docker logs -f'
 alias dlf='docker logs -f'
 
-# Git Aliases
-# Most git aliases are now provided by Zinit OMZP::git plugin.
-# Define only strictly custom overrides or additions here.
-alias g=git
+# Git Aliases & Functions
+alias g='git'
+alias ga='git add'
+alias gaa='git add --all'
+alias gap='git apply'
+alias gapa='git add --patch'
+alias gau='git add --update'
+alias gav='git add --verbose'
+alias gb='git branch'
+alias gbD='git branch -D'
+alias gba='git branch --all'
+alias gbd='git branch -d'
+alias gbnm='git branch --no-merged'
+alias gbr='git branch --remote'
+alias gbs='git bisect'
+alias gbsb='git bisect bad'
+alias gbsg='git bisect good'
+alias gbsr='git bisect reset'
+alias gbss='git bisect start'
+alias gc='git commit -v'
+alias gca='git commit -v -a'
+alias gcam='git commit -a -m'
+alias gcamend='git commit --amend'
+alias gcan='git commit -v --no-edit --amend'
+alias gcans='git commit -v -a --no-edit --amend'
+alias gcb='git checkout -b'
+alias gcf='git config --list'
+alias gcl='git clone --recurse-submodules'
+alias gcm='git commit -m'
+alias gcms='git commit -S -m'
+alias gcmsg='git commit -m'
+alias gco='git checkout'
+alias gcp='git cherry-pick'
+alias gcpa='git cherry-pick --abort'
+alias gcpc='git cherry-pick --continue'
+alias gd='git diff'
+alias gdc='git diff --cached'
+alias gdca='git diff --cached'
+alias gds='git diff --staged'
+alias gdt='git diff-tree --no-commit-id --name-only -r'
+alias gignore='git update-index --assume-unchanged'
+alias gignored="git ls-files -v | grep '^[[:lower:]]'"
+alias gl='git pull'
+alias glg='git log --stat'
+alias glgga='git log --graph --decorate --all'
+alias glgm='git log --graph --max-count=10'
+alias glgp='git log --stat -p'
+alias glod='git log --graph --decorate --oneline'
+alias glol='git log --graph --oneline --decorate'
+alias glols='git log --graph --oneline --decorate --stat'
+alias glp='git log --graph --decorate --pretty'
+alias gm='git merge'
+alias gma='git merge --abort'
+alias gp='git push'
+alias gpd='git push --dry-run'
+alias gpf='git push --force-with-lease'
+alias gpu='git push upstream'
+alias gr='git remote'
+alias gra='git remote add'
+alias grb='git rebase'
+alias grba='git rebase --abort'
+alias grbc='git rebase --continue'
+alias grbi='git rebase --interactive'
+alias grbs='git rebase --skip'
+alias gres='git reset'
+alias grev='git revert'
+alias grh='git reset HEAD'
+alias grhh='git reset HEAD --hard'
+alias grm='git rm'
+alias grmc='git rm --cached'
+alias grmv='git remote rename'
+alias groh='git reset origin/HEAD --hard'
+alias grrm='git remote remove'
+alias grset='git remote set-url'
+alias grt='cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"'
+alias gru='git reset --'
+alias gs='git status'
+alias gsb='git status --branch'
+alias gsd='git sync'
+alias gsh='git show'
+alias gsi='git submodule init'
+alias gsps='git show --pretty=short --show-signature'
+alias gss='git status --short'
+alias gst='git status'
+alias gsta='git stash push'
+alias gstaa='git stash apply'
+alias gstc='git stash clear'
+alias gstd='git stash drop'
+alias gstl='git stash list'
+alias gsts='git stash show --text'
+alias gsu='git submodule update'
+alias gsw='git switch'
+alias gswc='git switch --create'
+alias gts='git tag -s'
+alias gtv='git tag -v'
 
-# alias vim='nvim' # 通过 setup.sh 添加
+git_log_pretty() {
+    local cols="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
+    printf '\033[37m%*s\033[0m\n' "$cols" '' | tr ' ' '─'
+    git log --graph --oneline --decorate \
+        --format=format:'%C(bold green)%h%C(reset) - %C(bold blue)%ad%C(reset) %C(white)%s%C(reset)%C(bold yellow)%d%C(reset)' \
+        --date=human \
+        -10 "$@"
+}
+alias glog='git_log_pretty'
 
 # docker stats --no-stream 的增强版本，显示总内存使用和占主机总内存的百分比
 dsns() {
