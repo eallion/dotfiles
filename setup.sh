@@ -14,6 +14,13 @@ cleanup_temp() {
 }
 trap cleanup_temp EXIT
 
+# 服务待重启标记（保证所有配置过程中不主动重启服务，推迟至脚本末尾提示）
+DOCKER_NEEDS_RESTART=false
+SSH_NEEDS_RESTART=false
+SSH_RESTART_PORT=""
+UFW_NEEDS_RELOAD=false
+FAIL2BAN_NEEDS_RESTART=false
+
 # 包名 -> 命令名映射
 declare -A PKG_CMD_MAP=(
     [trash-cli]="trash"
@@ -52,7 +59,7 @@ if [[ "$1" == "--rollback" || "$1" == "-r" ]]; then
     fi
 
     printf "使用最新备份 '%s' 进行回滚? (y/N) " "$LATEST_BACKUP"
-    if read -t 10 CONFIRM_ROLLBACK < /dev/tty; then :; else CONFIRM_ROLLBACK="N"; echo ""; fi
+    if read CONFIRM_ROLLBACK < /dev/tty; then :; else CONFIRM_ROLLBACK="N"; echo ""; fi
 
     if [[ "$CONFIRM_ROLLBACK" =~ ^[Yy]$ ]]; then
         BACKUP_PATH="$BACKUP_DIR/$LATEST_BACKUP"
@@ -96,7 +103,7 @@ if [[ "$1" == "--clean-backup" || "$1" == "-c" ]]; then
     echo ""
 
     printf "确定要清除所有备份吗? (y/N) "
-    if read -t 10 CONFIRM_CLEAN < /dev/tty; then :; else CONFIRM_CLEAN="N"; echo ""; fi
+    if read CONFIRM_CLEAN < /dev/tty; then :; else CONFIRM_CLEAN="N"; echo ""; fi
 
     if [[ "$CONFIRM_CLEAN" =~ ^[Yy]$ ]]; then
         rm -rf "$BACKUP_DIR"
@@ -195,7 +202,7 @@ else
         printf "请输入序号 (1-3，默认 1): " >&2
 
         local choice="1"
-        if read -t 20 choice < /dev/tty; then :; else choice="1"; echo "" >&2; fi
+        if read choice < /dev/tty; then :; else choice="1"; echo "" >&2; fi
         [[ -z "$choice" ]] && choice="1"
 
         case "$choice" in
@@ -208,7 +215,7 @@ else
             3)
                 printf "请输入自定义 Raw 基础链接 (例如 https://cnb.cool/eallion/dotfiles/-/git/raw/main): " >&2
                 local custom_url=""
-                read -t 30 custom_url < /dev/tty
+                read custom_url < /dev/tty
                 custom_url="${custom_url%/}"
                 if [[ -n "$custom_url" ]]; then
                     echo "$custom_url"
@@ -254,26 +261,29 @@ select_github_proxy() {
     local default_proxy_choice="1"
     if [[ "$can_connect_gh" == true ]]; then
         echo "ℹ 当前网络直连 GitHub 正常。"
+        default_proxy_choice="6"
     else
-        echo "⚠ 当前网络直连 GitHub 受限或超时，如遇下载失败可选择加速节点。"
+        echo "⚠ 当前网络直连 GitHub 受限或超时，建议使用加速节点。"
+        default_proxy_choice="1"
     fi
 
     echo "▶ 请选择 GitHub 资源加速节点："
-    echo "   1) 不使用加速 (直连 GitHub，默认)"
-    echo "   2) https://ghproxy.net/ (推荐加速)"
+    echo "   1) https://axisnow.gh-proxy.org/ (推荐加速)"
+    echo "   2) https://ghproxy.net/"
     echo "   3) https://github.akams.cn/"
     echo "   4) https://mirror.ghproxy.com/"
     echo "   5) https://gh-proxy.com/"
-    echo "   6) 自定义加速链接"
-    printf "请输入序号 (1-6，默认 %s): " "$default_proxy_choice"
+    echo "   6) 不使用加速 (直连 GitHub)"
+    echo "   7) 自定义加速链接"
+    printf "请输入序号 (1-7，默认 %s): " "$default_proxy_choice"
 
     local proxy_choice="$default_proxy_choice"
-    if read -t 20 proxy_choice < /dev/tty 2>/dev/null; then :; else proxy_choice="$default_proxy_choice"; echo ""; fi
+    if read proxy_choice < /dev/tty 2>/dev/null; then :; else proxy_choice="$default_proxy_choice"; echo ""; fi
     [[ -z "$proxy_choice" ]] && proxy_choice="$default_proxy_choice"
 
     case "$proxy_choice" in
         1)
-            GH_PROXY=""
+            GH_PROXY="https://axisnow.gh-proxy.org/"
             ;;
         2)
             GH_PROXY="https://ghproxy.net/"
@@ -288,9 +298,12 @@ select_github_proxy() {
             GH_PROXY="https://gh-proxy.com/"
             ;;
         6)
-            printf "请输入自定义加速前缀 (例如 https://ghproxy.net/ 或 https://github.akams.cn/): "
+            GH_PROXY=""
+            ;;
+        7)
+            printf "请输入自定义加速前缀 (例如 https://axisnow.gh-proxy.org/ 或 https://ghproxy.net/): "
             local custom_proxy=""
-            read -t 30 custom_proxy < /dev/tty
+            read custom_proxy < /dev/tty
             custom_proxy="${custom_proxy%/}"
             if [[ -n "$custom_proxy" ]]; then
                 GH_PROXY="${custom_proxy}/"
@@ -300,8 +313,12 @@ select_github_proxy() {
             fi
             ;;
         *)
-            echo "⚠ 无效输入，默认不使用加速。"
-            GH_PROXY=""
+            echo "⚠ 无效输入，默认使用推荐配置。"
+            if [[ "$default_proxy_choice" == "1" ]]; then
+                GH_PROXY="https://axisnow.gh-proxy.org/"
+            else
+                GH_PROXY=""
+            fi
             ;;
     esac
 
@@ -326,30 +343,6 @@ apply_gh_proxy() {
     fi
 }
 
-###
-# 安装模式：minimal, full, server, desktop
-###
-PROFILE="interactive"
-for arg in "$@"; do
-    case "$arg" in
-        --minimal|minimal)
-            PROFILE="minimal"
-            break
-            ;;
-        --full|full)
-            PROFILE="full"
-            break
-            ;;
-        --server|server)
-            PROFILE="server"
-            break
-            ;;
-        --desktop|desktop)
-            PROFILE="desktop"
-            break
-            ;;
-    esac
-done
 
 ###
 # 辅助函数：获取配置文件
@@ -543,21 +536,7 @@ install_cli_tools() {
     local tools=("$@")
     
     local selected_cli
-    case "$PROFILE" in
-        minimal)
-            echo "⏭ 最小模式，跳过 CLI 工具安装。"
-            return 0
-            ;;
-        full|desktop)
-            selected_cli="ALL"
-            ;;
-        server)
-            selected_cli="ALL"
-            ;;
-        *)
-            selected_cli=$(select_tools "$title" "${tools[@]}")
-            ;;
-    esac
+    selected_cli=$(select_tools "$title" "${tools[@]}")
     
     if [[ "$selected_cli" == *"SKIP"* ]] || [[ -z "$selected_cli" ]]; then
         echo "⏭ 跳过现代 CLI 工具安装。"
@@ -651,21 +630,7 @@ install_fisher_plugins() {
     fi
 
     local selected_plugins
-    case "$PROFILE" in
-        minimal)
-            echo "⏭ 最小模式，跳过 Fisher 插件安装。"
-            return 0
-            ;;
-        full|desktop)
-            selected_plugins="ALL"
-            ;;
-        server)
-            selected_plugins="ALL"
-            ;;
-        *)
-            selected_plugins=$(select_tools "Fisher 插件安装" "ALL" "${plugins[@]}" "SKIP")
-            ;;
-    esac
+    selected_plugins=$(select_tools "Fisher 插件安装" "ALL" "${plugins[@]}" "SKIP")
 
     if [[ "$selected_plugins" == *"SKIP"* ]] || [[ -z "$selected_plugins" ]]; then
         echo "⏭ 跳过 Fisher 插件安装。"
@@ -828,12 +793,12 @@ if [[ "$EUID" -eq 0 ]]; then
     printf "请输入序号 (1-2，默认 1): "
 
     ROOT_MODE_CHOICE="1"
-    if read -t 20 ROOT_MODE_CHOICE < /dev/tty 2>/dev/null; then :; else ROOT_MODE_CHOICE="1"; echo ""; fi
+    if read ROOT_MODE_CHOICE < /dev/tty 2>/dev/null; then :; else ROOT_MODE_CHOICE="1"; echo ""; fi
     [[ -z "$ROOT_MODE_CHOICE" ]] && ROOT_MODE_CHOICE="1"
 
     if [[ "$ROOT_MODE_CHOICE" == "1" ]]; then
         printf "请输入普通用户名: "
-        read -t 30 USERNAME < /dev/tty
+        read USERNAME < /dev/tty
         USERNAME=$(echo "$USERNAME" | tr -d '[:space:]')
         if [[ -z "$USERNAME" ]]; then
             echo "❌ 用户名不能为空，退出脚本。"
@@ -866,7 +831,7 @@ if [[ "$EUID" -eq 0 ]]; then
             # 提示设置密码
             printf "是否为用户 $USERNAME 设置登录密码? (y/N) "
             SET_PASSWD="N"
-            if read -t 15 SET_PASSWD < /dev/tty 2>/dev/null; then :; else SET_PASSWD="N"; echo ""; fi
+            if read SET_PASSWD < /dev/tty 2>/dev/null; then :; else SET_PASSWD="N"; echo ""; fi
             if [[ "$SET_PASSWD" =~ ^[Yy]$ ]]; then
                 passwd "$USERNAME" < /dev/tty || echo "⚠ 密码设置未完成，后续可通过 passwd $USERNAME 进行修改。"
             else
@@ -883,7 +848,7 @@ if [[ "$EUID" -eq 0 ]]; then
         # 配置 sudoers 免密权限
         printf "是否为用户 %s 配置 sudo 免密码权限 (NOPASSWD)? (Y/n) " "$USERNAME"
         CONFIG_NEW_USER_NOPASSWD="Y"
-        if read -t 15 CONFIG_NEW_USER_NOPASSWD < /dev/tty 2>/dev/null; then :; else CONFIG_NEW_USER_NOPASSWD="Y"; echo ""; fi
+        if read CONFIG_NEW_USER_NOPASSWD < /dev/tty 2>/dev/null; then :; else CONFIG_NEW_USER_NOPASSWD="Y"; echo ""; fi
         [[ -z "$CONFIG_NEW_USER_NOPASSWD" ]] && CONFIG_NEW_USER_NOPASSWD="Y"
         if [[ "$CONFIG_NEW_USER_NOPASSWD" =~ ^[Yy]$ ]]; then
             echo "▶ 正在为 $USERNAME 配置 sudo 免密权限 (NOPASSWD)..."
@@ -908,7 +873,7 @@ if [[ "$EUID" -eq 0 ]]; then
         if [[ -f "/root/.ssh/authorized_keys" && -s "/root/.ssh/authorized_keys" ]]; then
             printf "检测到 root 用户存在 SSH 公钥配置，是否同步至 $USERNAME (强烈建议，防止后续禁用 root 导致 SSH 无法登录)? (Y/n) "
             SYNC_SSH="Y"
-            if read -t 15 SYNC_SSH < /dev/tty 2>/dev/null; then :; else SYNC_SSH="Y"; echo ""; fi
+            if read SYNC_SSH < /dev/tty 2>/dev/null; then :; else SYNC_SSH="Y"; echo ""; fi
             [[ -z "$SYNC_SSH" ]] && SYNC_SSH="Y"
             if [[ "$SYNC_SSH" =~ ^[Yy]$ ]]; then
                 mkdir -p "/home/$USERNAME/.ssh"
@@ -988,68 +953,61 @@ for arg in "$@"; do
     esac
 done
 
-# 3. 若未显式指定目标 Shell，则在自动化模式下推断或在交互模式下让用户选择
+# 3. 若未显式指定目标 Shell，交互式询问用户选择目标 Shell
 if [[ -z "$INSTALL_SHELL" ]]; then
-    if [[ "$PROFILE" == "desktop" || "$PROFILE" == "full" ]]; then
-        INSTALL_SHELL="${DETECTED_SHELL:-fish}"
-    elif [[ "$PROFILE" == "server" || "$PROFILE" == "minimal" ]]; then
-        INSTALL_SHELL="${DETECTED_SHELL:-bash}"
-    else
-        # 交互模式：询问用户选择目标 Shell
+    default_choice="1"
+    if [[ "$DETECTED_SHELL" == "fish" ]]; then
         default_choice="1"
-        if [[ "$DETECTED_SHELL" == "fish" ]]; then
-            default_choice="1"
-        elif [[ "$DETECTED_SHELL" == "bash" ]]; then
-            default_choice="2"
-        elif [[ "$DETECTED_SHELL" == "zsh" ]]; then
-            default_choice="3"
-        fi
-
-        echo "------------------------------"
-        echo "▶ 请选择要配置的目标 Shell："
-        case "$default_choice" in
-            1)
-                echo "   1) fish (默认，现代化友好交互式 Shell)"
-                echo "   2) bash (通用标准 Shell)"
-                echo "   3) zsh  (Z Shell)"
-                ;;
-            2)
-                echo "   1) fish (现代化友好交互式 Shell)"
-                echo "   2) bash (默认，通用标准 Shell)"
-                echo "   3) zsh  (Z Shell)"
-                ;;
-            3)
-                echo "   1) fish (现代化友好交互式 Shell)"
-                echo "   2) bash (通用标准 Shell)"
-                echo "   3) zsh  (默认，Z Shell)"
-                ;;
-        esac
-        printf "请输入序号 (1-3，默认 %s): " "$default_choice"
-
-        shell_choice="$default_choice"
-        if read -t 20 shell_choice < /dev/tty 2>/dev/null; then :; else shell_choice="$default_choice"; echo ""; fi
-        [[ -z "$shell_choice" ]] && shell_choice="$default_choice"
-
-        case "$shell_choice" in
-            1|fish)
-                INSTALL_SHELL="fish"
-                ;;
-            2|bash)
-                INSTALL_SHELL="bash"
-                ;;
-            3|zsh)
-                INSTALL_SHELL="zsh"
-                ;;
-            *)
-                echo "⚠ 无效输入，使用默认选项。"
-                case "$default_choice" in
-                    2) INSTALL_SHELL="bash" ;;
-                    3) INSTALL_SHELL="zsh" ;;
-                    *) INSTALL_SHELL="fish" ;;
-                esac
-                ;;
-        esac
+    elif [[ "$DETECTED_SHELL" == "bash" ]]; then
+        default_choice="2"
+    elif [[ "$DETECTED_SHELL" == "zsh" ]]; then
+        default_choice="3"
     fi
+
+    echo "------------------------------"
+    echo "▶ 请选择要配置的目标 Shell："
+    case "$default_choice" in
+        1)
+            echo "   1) fish (默认，现代化友好交互式 Shell)"
+            echo "   2) bash (通用标准 Shell)"
+            echo "   3) zsh  (Z Shell)"
+            ;;
+        2)
+            echo "   1) fish (现代化友好交互式 Shell)"
+            echo "   2) bash (默认，通用标准 Shell)"
+            echo "   3) zsh  (Z Shell)"
+            ;;
+        3)
+            echo "   1) fish (现代化友好交互式 Shell)"
+            echo "   2) bash (通用标准 Shell)"
+            echo "   3) zsh  (默认，Z Shell)"
+            ;;
+    esac
+    printf "请输入序号 (1-3，默认 %s): " "$default_choice"
+
+    shell_choice="$default_choice"
+    if read shell_choice < /dev/tty 2>/dev/null; then :; else shell_choice="$default_choice"; echo ""; fi
+    [[ -z "$shell_choice" ]] && shell_choice="$default_choice"
+
+    case "$shell_choice" in
+        1|fish)
+            INSTALL_SHELL="fish"
+            ;;
+        2|bash)
+            INSTALL_SHELL="bash"
+            ;;
+        3|zsh)
+            INSTALL_SHELL="zsh"
+            ;;
+        *)
+            echo "⚠ 无效输入，使用默认选项。"
+            case "$default_choice" in
+                2) INSTALL_SHELL="bash" ;;
+                3) INSTALL_SHELL="zsh" ;;
+                *) INSTALL_SHELL="fish" ;;
+            esac
+            ;;
+    esac
 fi
 
 echo "=== 正在开始配置 $INSTALL_SHELL 环境 ==="
@@ -1075,7 +1033,7 @@ if [[ "$EUID" -ne 0 ]]; then
         echo "❌ 未检测到 sudo 命令。"
         echo "你需要安装 sudo 才能继续。"
         printf "是否尝试使用 su 切换到 root 自动安装 sudo？(y/N) "
-        if read -t 10 INSTALL_SUDO < /dev/tty; then :; else INSTALL_SUDO="N"; echo ""; fi
+        if read INSTALL_SUDO < /dev/tty; then :; else INSTALL_SUDO="N"; echo ""; fi
         if [[ "$INSTALL_SUDO" =~ ^[Yy]$ ]]; then
             echo "请输入 root 密码以继续："
             su -c "apt-get update && apt-get install -y sudo"
@@ -1100,7 +1058,7 @@ if [[ "$EUID" -ne 0 ]]; then
             echo "✔ sudo 权限验证成功。"
             config_nopasswd="Y"
             printf "是否为当前用户 %s 配置 sudo 免密码 (NOPASSWD)? (Y/n) " "$CURRENT_USER"
-            if read -t 15 config_nopasswd < /dev/tty; then :; else config_nopasswd="Y"; echo ""; fi
+            if read config_nopasswd < /dev/tty; then :; else config_nopasswd="Y"; echo ""; fi
             [[ -z "$config_nopasswd" ]] && config_nopasswd="Y"
             if [[ "$config_nopasswd" =~ ^[Yy]$ ]]; then
                 echo "▶ 正在为当前用户配置 sudo 免密码 (NOPASSWD)..."
@@ -1123,7 +1081,7 @@ if [[ "$EUID" -ne 0 ]]; then
             # 用户不在 sudoers 中，尝试通过 su 申请 root 权限
             echo "❌ 当前用户 $CURRENT_USER 没有 sudo 权限。"
             printf "是否通过 su 自动配置 sudoers（需要输入 root 密码）? (y/N) "
-            if read -t 15 AUTO_SUDO < /dev/tty; then :; else AUTO_SUDO="N"; echo ""; fi
+            if read AUTO_SUDO < /dev/tty; then :; else AUTO_SUDO="N"; echo ""; fi
 
             if [[ "$AUTO_SUDO" =~ ^[Yy]$ ]]; then
                 echo "▶ 请输入 root 密码（以下操作以 root 身份执行）："
@@ -1157,14 +1115,8 @@ BACKUP_DIR="$HOME/.config/dotfiles"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_PATH="$BACKUP_DIR/$TIMESTAMP"
 
-case "$PROFILE" in
-    minimal) BACKUP_FILES="N" ;;
-    full|desktop|server) BACKUP_FILES="Y" ;;
-    *)
-        printf "是否备份现有的配置文件? (y/N) "
-        if read -t 10 BACKUP_FILES < /dev/tty; then :; else BACKUP_FILES="N"; echo ""; fi
-        ;;
-esac
+printf "是否备份现有的配置文件? (y/N) "
+if read BACKUP_FILES < /dev/tty; then :; else BACKUP_FILES="N"; echo ""; fi
 
 if [[ "$BACKUP_FILES" =~ ^[Yy]$ ]]; then
     mkdir -p "$BACKUP_PATH"
@@ -1208,7 +1160,7 @@ if [[ "$INSTALL_SHELL" == "fish" ]]; then
     if ! command -v fish &> /dev/null; then
         echo "ℹ 未检测到 fish。"
         printf "是否自动通过 apt 安装 fish? (Y/n) "
-        if read -t 15 AUTO_INSTALL_FISH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_FISH="Y"; echo ""; fi
+        if read AUTO_INSTALL_FISH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_FISH="Y"; echo ""; fi
         [[ -z "$AUTO_INSTALL_FISH" ]] && AUTO_INSTALL_FISH="Y"
 
         if [[ "$AUTO_INSTALL_FISH" =~ ^[Yy]$ ]]; then
@@ -1232,7 +1184,7 @@ elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
     if ! command -v zsh &> /dev/null; then
         echo "ℹ 未检测到 zsh。"
         printf "是否自动通过 apt 安装 zsh? (Y/n) "
-        if read -t 15 AUTO_INSTALL_ZSH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_ZSH="Y"; echo ""; fi
+        if read AUTO_INSTALL_ZSH < /dev/tty 2>/dev/null; then :; else AUTO_INSTALL_ZSH="Y"; echo ""; fi
         [[ -z "$AUTO_INSTALL_ZSH" ]] && AUTO_INSTALL_ZSH="Y"
 
         if [[ "$AUTO_INSTALL_ZSH" =~ ^[Yy]$ ]]; then
@@ -1289,45 +1241,30 @@ install_basic_tools() {
     fi
 }
 
-case "$PROFILE" in
-    minimal)
-        echo "⏭ 最小模式，跳过基础工具安装。"
-        ;;
-    full|desktop)
-        echo "▶ 安装基础工具 (full 模式)..."
-        install_basic_tools curl wget git ca-certificates jq neovim ncurses-term
-        ;;
-    server)
-        echo "▶ 安装服务器基础工具..."
-        install_basic_tools curl wget git ca-certificates ncurses-term
-        ;;
-    *)
-        echo "▶ 选择要安装的基础工具："
-        basic_tools=("ALL" "curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term" "SKIP")
-        selected_basic=$(select_tools "基础工具安装" "${basic_tools[@]}")
+echo "▶ 选择要安装的基础工具："
+basic_tools=("ALL" "curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term" "SKIP")
+selected_basic=$(select_tools "基础工具安装" "${basic_tools[@]}")
 
-        if [[ "$selected_basic" == *"SKIP"* ]] || [[ -z "$selected_basic" ]]; then
-            echo "⏭ 跳过基础工具安装。"
-        else
-            tools_to_install=()
-            if [[ "$selected_basic" == *"ALL"* ]]; then
-                tools_to_install=("curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term")
-            else
-                for tool in $selected_basic; do
-                    if [[ "$tool" != "ALL"* && "$tool" != "SKIP"* ]]; then
-                        tools_to_install+=("$tool")
-                    fi
-                done
+if [[ "$selected_basic" == *"SKIP"* ]] || [[ -z "$selected_basic" ]]; then
+    echo "⏭ 跳过基础工具安装。"
+else
+    tools_to_install=()
+    if [[ "$selected_basic" == *"ALL"* ]]; then
+        tools_to_install=("curl" "wget" "git" "ca-certificates" "jq" "neovim" "ncurses-term")
+    else
+        for tool in $selected_basic; do
+            if [[ "$tool" != "ALL"* && "$tool" != "SKIP"* ]]; then
+                tools_to_install+=("$tool")
             fi
+        done
+    fi
 
-            if [[ ${#tools_to_install[@]} -gt 0 ]]; then
-                install_basic_tools "${tools_to_install[@]}"
-            else
-                echo "⏭ 没有选择任何工具，跳过安装。"
-            fi
-        fi
-        ;;
-esac
+    if [[ ${#tools_to_install[@]} -gt 0 ]]; then
+        install_basic_tools "${tools_to_install[@]}"
+    else
+        echo "⏭ 没有选择任何工具，跳过安装。"
+    fi
+fi
 echo "------------------------------"
 
 # --- 安装 Starship ---
@@ -1339,26 +1276,16 @@ if command -v starship &> /dev/null; then
 fi
 
 INSTALL_STARSHIP="N"
-case "$PROFILE" in
-    minimal)
-        INSTALL_STARSHIP="N"
-        ;;
-    full|desktop|server)
+if [[ "$STARSHIP_ALREADY_INSTALLED" == true ]]; then
+    printf "是否重新安装/更新 Starship? (y/N) "
+    if read REINSTALL_STARSHIP < /dev/tty; then :; else REINSTALL_STARSHIP="N"; echo ""; fi
+    if [[ "$REINSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
         INSTALL_STARSHIP="Y"
-        ;;
-    *)
-        if [[ "$STARSHIP_ALREADY_INSTALLED" == true ]]; then
-            printf "是否重新安装/更新 Starship? (y/N) "
-            if read -t 10 REINSTALL_STARSHIP < /dev/tty; then :; else REINSTALL_STARSHIP="N"; echo ""; fi
-            if [[ "$REINSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
-                INSTALL_STARSHIP="Y"
-            fi
-        else
-            printf "是否安装 Starship 提示符? (y/N) "
-            if read -t 15 INSTALL_STARSHIP < /dev/tty; then :; else INSTALL_STARSHIP="N"; echo ""; fi
-        fi
-        ;;
-esac
+    fi
+else
+    printf "是否安装 Starship 提示符? (y/N) "
+    if read INSTALL_STARSHIP < /dev/tty; then :; else INSTALL_STARSHIP="N"; echo ""; fi
+fi
 
 if [[ "$INSTALL_STARSHIP" =~ ^[Yy]$ ]]; then
     echo "▶ 正在安装 Starship..."
@@ -1386,20 +1313,9 @@ fi
 
 # 检查当前是否可以使用 starship 命令配置主题
 if command -v starship &> /dev/null; then
-    CONFIGURE_PRESET="N"
-    case "$PROFILE" in
-        minimal)
-            CONFIGURE_PRESET="N"
-            ;;
-        full|desktop|server)
-            CONFIGURE_PRESET="Y"
-            ;;
-        *)
-            printf "是否配置 Starship 官方 Preset 主题? (Y/n) "
-            if read -t 15 CONFIGURE_PRESET < /dev/tty; then :; else CONFIGURE_PRESET="Y"; echo ""; fi
-            [[ -z "$CONFIGURE_PRESET" ]] && CONFIGURE_PRESET="Y"
-            ;;
-    esac
+    printf "是否配置 Starship 官方 Preset 主题? (Y/n) "
+    if read CONFIGURE_PRESET < /dev/tty; then :; else CONFIGURE_PRESET="Y"; echo ""; fi
+    [[ -z "$CONFIGURE_PRESET" ]] && CONFIGURE_PRESET="Y"
 
     if [[ "$CONFIGURE_PRESET" =~ ^[Yy]$ ]]; then
         mkdir -p "$HOME/.config"
@@ -1418,7 +1334,7 @@ if command -v starship &> /dev/null; then
         echo "  12) no-nerd-font         (无 Nerd Font 标准符号预设)"
         echo "  13) 保持现有配置 / 跳过"
         printf "请输入序号 (1-13，默认 1): "
-        if read -t 20 PRESET_CHOICE < /dev/tty; then :; else PRESET_CHOICE="1"; echo ""; fi
+        if read PRESET_CHOICE < /dev/tty; then :; else PRESET_CHOICE="1"; echo ""; fi
         [[ -z "$PRESET_CHOICE" ]] && PRESET_CHOICE="1"
 
         CHOSEN_PRESET=""
@@ -1456,23 +1372,13 @@ if command -v starship &> /dev/null; then
         echo "------------------------------"
 
         # 下一步：是否配置无 Nerd 字体环境时使用的主题
-        case "$PROFILE" in
-            minimal)
-                FALLBACK_PRESET_CHOICE="3"
-                ;;
-            full|desktop|server)
-                FALLBACK_PRESET_CHOICE="1"
-                ;;
-            *)
-                echo "▶ 是否配置无 Nerd 字体环境的兼容主题 (用于 VNC、Web 控制台、TTY 等)？"
-                echo "   1) plain-text-symbols (默认，纯文本 ASCII 符号，开箱即用 0 乱码)"
-                echo "   2) no-nerd-font       (使用标准 Unicode/Emoji 代替 Nerd Font)"
-                echo "   3) 跳过 / 不配置"
-                printf "请输入序号 (1-3，默认 1): "
-                if read -t 15 FALLBACK_PRESET_CHOICE < /dev/tty; then :; else FALLBACK_PRESET_CHOICE="1"; echo ""; fi
-                [[ -z "$FALLBACK_PRESET_CHOICE" ]] && FALLBACK_PRESET_CHOICE="1"
-                ;;
-        esac
+        echo "▶ 是否配置无 Nerd 字体环境的兼容主题 (用于 VNC、Web 控制台、TTY 等)？"
+        echo "   1) plain-text-symbols (默认，纯文本 ASCII 符号，开箱即用 0 乱码)"
+        echo "   2) no-nerd-font       (使用标准 Unicode/Emoji 代替 Nerd Font)"
+        echo "   3) 跳过 / 不配置"
+        printf "请输入序号 (1-3，默认 1): "
+        if read FALLBACK_PRESET_CHOICE < /dev/tty; then :; else FALLBACK_PRESET_CHOICE="1"; echo ""; fi
+        [[ -z "$FALLBACK_PRESET_CHOICE" ]] && FALLBACK_PRESET_CHOICE="1"
 
         case "$FALLBACK_PRESET_CHOICE" in
             1)
@@ -1503,14 +1409,8 @@ fi
 echo "------------------------------"
 
 # --- 安装字体 ---
-case "$PROFILE" in
-    minimal|server) INSTALL_FONTS="N" ;;
-    desktop) INSTALL_FONTS="Y" ;;
-    *)
-        printf "是否安装 JetBrains Maple Mono 字体? (y/N) "
-        if read -t 10 INSTALL_FONTS < /dev/tty; then :; else INSTALL_FONTS="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 JetBrains Maple Mono 字体? (y/N) "
+if read INSTALL_FONTS < /dev/tty; then :; else INSTALL_FONTS="N"; echo ""; fi
 
 if [[ "$INSTALL_FONTS" =~ ^[Yy]$ ]]; then
     if command -v fc-list &>/dev/null && fc-list 2>/dev/null | grep -qi "JetBrainsMapleMono"; then
@@ -1573,13 +1473,7 @@ if [[ "$INSTALL_SHELL" == "fish" ]]; then
     echo "------------------------------"
 
     # --- 安装 Fish 配置文件 ---
-    case "$PROFILE" in
-        minimal) selected_fish_cfg="SKIP" ;;
-        full|desktop) selected_fish_cfg="ALL" ;;
-        *)
-            selected_fish_cfg=$(select_tools "Fish 配置文件安装" "ALL" "~/.config/fish/config.fish" "~/.config/fish/functions/aliases.fish" "~/.config/fish/fish_plugins" "~/.login_info.sh" "SKIP")
-            ;;
-    esac
+    selected_fish_cfg=$(select_tools "Fish 配置文件安装" "ALL" "~/.config/fish/config.fish" "~/.config/fish/functions/aliases.fish" "~/.config/fish/fish_plugins" "~/.login_info.sh" "SKIP")
 
     if [[ "$selected_fish_cfg" == *"SKIP"* ]] || [[ -z "$selected_fish_cfg" ]]; then
         echo "⏭ 跳过 Fish 配置文件安装。"
@@ -1643,13 +1537,7 @@ elif [[ "$INSTALL_SHELL" == "zsh" ]]; then
     echo "------------------------------"
 
     # --- 安装 ZSH 配置文件 ---
-    case "$PROFILE" in
-        minimal) selected_zsh_cfg="SKIP" ;;
-        full|desktop|server) selected_zsh_cfg="ALL" ;;
-        *)
-            selected_zsh_cfg=$(select_tools "Zsh 配置文件安装" "ALL" "~/.zshrc" "~/.aliases" "~/.login_info.sh" "SKIP")
-            ;;
-    esac
+    selected_zsh_cfg=$(select_tools "Zsh 配置文件安装" "ALL" "~/.zshrc" "~/.aliases" "~/.login_info.sh" "SKIP")
 
     if [[ "$selected_zsh_cfg" == *"SKIP"* ]] || [[ -z "$selected_zsh_cfg" ]]; then
         echo "⏭ 跳过 ZSH 配置文件安装。"
@@ -1685,14 +1573,8 @@ else
     echo "=== 开始安装 BASH 配置 ==="
 
     # --- [可选] 安装 Oh My Bash ---
-    case "$PROFILE" in
-        minimal) INSTALL_OMB="N" ;;
-        full|desktop) INSTALL_OMB="Y" ;;
-        *)
-            printf "是否安装 Oh My Bash 框架? (y/N) "
-            if read -t 10 INSTALL_OMB < /dev/tty; then :; else INSTALL_OMB="N"; echo ""; fi
-            ;;
-    esac
+    printf "是否安装 Oh My Bash 框架? (y/N) "
+    if read INSTALL_OMB < /dev/tty; then :; else INSTALL_OMB="N"; echo ""; fi
 
     if [[ "$INSTALL_OMB" =~ ^[Yy]$ ]]; then
         echo "▶ 正在安装 Oh My Bash..."
@@ -1765,13 +1647,7 @@ EOF
     echo "------------------------------"
 
     # --- 安装 Bash 配置文件 ---
-    case "$PROFILE" in
-        minimal) selected_bash_cfg="SKIP" ;;
-        full|desktop|server) selected_bash_cfg="ALL" ;;
-        *)
-            selected_bash_cfg=$(select_tools "Bash 配置文件安装" "ALL" "~/.bashrc" "~/.aliases" "~/.login_info.sh" "SKIP")
-            ;;
-    esac
+    selected_bash_cfg=$(select_tools "Bash 配置文件安装" "ALL" "~/.bashrc" "~/.aliases" "~/.login_info.sh" "SKIP")
 
     if [[ "$selected_bash_cfg" == *"SKIP"* ]] || [[ -z "$selected_bash_cfg" ]]; then
         echo "⏭ 跳过 Bash 配置文件安装。"
@@ -1805,15 +1681,8 @@ EOF
 fi
 
 # --- 安装 Mise ---
-case "$PROFILE" in
-    minimal) INSTALL_MISE="N" ;;
-    full|desktop) INSTALL_MISE="Y" ;;
-    server) INSTALL_MISE="N" ;;
-    *)
-        printf "是否安装 Mise (开发环境工具版本管理器)? (y/N) "
-        if read -t 10 INSTALL_MISE < /dev/tty; then :; else INSTALL_MISE="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 Mise (开发环境工具版本管理器)? (y/N) "
+if read INSTALL_MISE < /dev/tty; then :; else INSTALL_MISE="N"; echo ""; fi
 
 if [[ "$INSTALL_MISE" =~ ^[Yy]$ ]]; then
     if command -v mise &>/dev/null; then
@@ -1869,7 +1738,7 @@ FISHEOF
     echo "  2) 指定版本号"
     echo "  3) 跳过"
     printf "请选择 (1/2/3，默认 3): "
-    if read -t 15 NODE_CHOICE < /dev/tty; then :; else NODE_CHOICE="3"; echo ""; fi
+    if read NODE_CHOICE < /dev/tty; then :; else NODE_CHOICE="3"; echo ""; fi
 
     NODE_VERSION=""
     case "$NODE_CHOICE" in
@@ -1878,7 +1747,7 @@ FISHEOF
             ;;
         2)
             printf "请输入版本号（如 20、22.0.0）: "
-            if read -t 30 NODE_VERSION_INPUT < /dev/tty; then :; else NODE_VERSION_INPUT=""; echo ""; fi
+            if read NODE_VERSION_INPUT < /dev/tty; then :; else NODE_VERSION_INPUT=""; echo ""; fi
             if [[ -z "$NODE_VERSION_INPUT" ]]; then
                 echo "⚠ 未输入版本号，跳过 Node.js 安装。"
             else
@@ -1912,7 +1781,7 @@ FISHEOF
     if [[ -n "$NODE_VERSION" ]]; then
         # --- 安装 pnpm ---
         printf "是否安装 pnpm? (y/N) "
-        if read -t 10 INSTALL_PNPM < /dev/tty; then :; else INSTALL_PNPM="N"; echo ""; fi
+        if read INSTALL_PNPM < /dev/tty; then :; else INSTALL_PNPM="N"; echo ""; fi
 
         if [[ "$INSTALL_PNPM" =~ ^[Yy]$ ]]; then
             echo "▶ 正在使用 mise 安装 pnpm..."
@@ -1929,41 +1798,59 @@ echo "------------------------------"
 
 # --- 安装与配置 deb-get ---
 echo "=== deb-get 配置 ==="
-case "$PROFILE" in
-    minimal) INSTALL_DEB_GET="N" ;;
-    full|desktop) INSTALL_DEB_GET="Y" ;;
-    server) INSTALL_DEB_GET="N" ;;
-    *)
-        printf "是否安装 deb-get (Debian / Ubuntu 专属第三方软件包管理器)? (y/N) "
-        if read -t 10 INSTALL_DEB_GET < /dev/tty; then :; else INSTALL_DEB_GET="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 deb-get (Debian / Ubuntu 专属第三方软件包管理器)? (y/N) "
+if read INSTALL_DEB_GET < /dev/tty; then :; else INSTALL_DEB_GET="N"; echo ""; fi
 
 if [[ "$INSTALL_DEB_GET" =~ ^[Yy]$ ]]; then
     if command -v deb-get &>/dev/null; then
         echo "✔ deb-get 已安装: $(deb-get version 2>/dev/null | head -n1)"
     else
-        echo "▶ 正在安装 deb-get..."
-        $SUDO apt-get update -y && $SUDO apt-get install -y curl lsb-release
+        echo "▶ 正在安装 deb-get 依赖包 (curl, lsb-release, distro-info-data)..."
+        $SUDO apt-get update -y && $SUDO apt-get install -y curl lsb-release distro-info-data distro-info 2>/dev/null || \
+        $SUDO apt-get install -y curl lsb-release distro-info-data 2>/dev/null || \
+        $SUDO apt-get install -y curl lsb-release
+
+        # 检查并确保 /usr/share/distro-info/debian.csv 存在且包含 trixie，防止 Debian 13/VPS 误报不支持
+        if [ ! -f /usr/share/distro-info/debian.csv ]; then
+            $SUDO mkdir -p /usr/share/distro-info
+            $SUDO tee /usr/share/distro-info/debian.csv > /dev/null << 'DEBINFOEOF'
+version,codename,series,created,release,eol,eol-lts,eol-elts
+11,Bullseye,bullseye,2019-07-06,2021-08-14,2024-08-14,2026-08-31,2031-06-30
+12,Bookworm,bookworm,2021-08-14,2023-06-10,2026-07-11,2028-06-30,2033-06-30
+13,Trixie,trixie,2023-06-10,2025-08-09,2028-08-09,2030-06-30,2035-06-30
+14,Forky,forky,2025-08-09,,,,
+DEBINFOEOF
+        elif ! grep -q 'trixie' /usr/share/distro-info/debian.csv 2>/dev/null; then
+            echo '13,Trixie,trixie,2023-06-10,2025-08-09,2028-08-09,2030-06-30,2035-06-30' | $SUDO tee -a /usr/share/distro-info/debian.csv > /dev/null
+        fi
+
         DEB_GET_RAW_URL="https://raw.githubusercontent.com/wimpysworld/deb-get/main/deb-get"
         DEB_GET_URL=$(apply_gh_proxy "$DEB_GET_RAW_URL")
-        if curl -fsSL "$DEB_GET_URL" | $SUDO -E bash -s install deb-get; then
-            echo "✔ deb-get 安装成功。"
+
+        TEMP_DEB_GET=$(mktemp)
+        TEMP_FILES+=("$TEMP_DEB_GET")
+
+        echo "▶ 正在下载 deb-get 安装脚本..."
+        if curl -fsSL --connect-timeout 5 -m 15 "$DEB_GET_URL" -o "$TEMP_DEB_GET" 2>/dev/null || \
+           curl -fsSL --connect-timeout 5 -m 15 "$DEB_GET_RAW_URL" -o "$TEMP_DEB_GET" 2>/dev/null; then
+            if [[ -n "$GH_PROXY" ]]; then
+                sed -i "s|https://github.com/|${GH_PROXY}https://github.com/|g" "$TEMP_DEB_GET"
+            fi
+            if $SUDO -E bash "$TEMP_DEB_GET" install deb-get; then
+                echo "✔ deb-get 安装成功。"
+            else
+                echo "❌ deb-get 安装执行失败。"
+            fi
+            rm -f "$TEMP_DEB_GET" 2>/dev/null || true
         else
-            echo "⚠ 加速源下载失败，尝试直连安装 deb-get..."
-            curl -fsSL "$DEB_GET_RAW_URL" | $SUDO -E bash -s install deb-get || echo "❌ deb-get 安装失败。"
+            echo "❌ 无法下载 deb-get 安装脚本。"
         fi
     fi
 
     if command -v deb-get &>/dev/null; then
-        case "$PROFILE" in
-            minimal) ADD_EALLION_REPO="N" ;;
-            *)
-                printf "是否添加 eallion 的 deb-get 软件源? (Y/n) "
-                if read -t 10 ADD_EALLION_REPO < /dev/tty; then :; else ADD_EALLION_REPO="Y"; echo ""; fi
-                [[ -z "$ADD_EALLION_REPO" ]] && ADD_EALLION_REPO="Y"
-                ;;
-        esac
+        printf "是否添加 eallion 的 deb-get 软件源? (Y/n) "
+        if read ADD_EALLION_REPO < /dev/tty; then :; else ADD_EALLION_REPO="Y"; echo ""; fi
+        [[ -z "$ADD_EALLION_REPO" ]] && ADD_EALLION_REPO="Y"
 
         if [[ "$ADD_EALLION_REPO" =~ ^[Yy]$ ]]; then
             echo "▶ 正在添加 eallion 源至 /etc/deb-get/eallion.repo ..."
@@ -1983,16 +1870,9 @@ echo "------------------------------"
 if command -v apt &>/dev/null && apt modernize-sources --assume-no 2>&1 | grep -q 'The following files need modernizing'; then
     echo "=== APT 软件源现代化 (deb822) ==="
     echo "检测到系统中存在旧版 .list 软件源配置 (如 docker, chrome, vscode 等)。"
-    modernize_choice="Y"
-    case "$PROFILE" in
-        minimal) modernize_choice="N" ;;
-        full|desktop|server) modernize_choice="Y" ;;
-        *)
-            printf "是否执行 apt modernize-sources 转换为现代化 deb822 (.sources) 格式? (Y/n) "
-            if read -t 15 modernize_choice < /dev/tty; then :; else modernize_choice="Y"; echo ""; fi
-            [[ -z "$modernize_choice" ]] && modernize_choice="Y"
-            ;;
-    esac
+    printf "是否执行 apt modernize-sources 转换为现代化 deb822 (.sources) 格式? (Y/n) "
+    if read modernize_choice < /dev/tty; then :; else modernize_choice="Y"; echo ""; fi
+    [[ -z "$modernize_choice" ]] && modernize_choice="Y"
 
     if [[ "$modernize_choice" =~ ^[Yy]$ ]]; then
         echo "▶ 正在执行 apt modernize-sources 转换软件源..."
@@ -2045,14 +1925,8 @@ fi
 echo "▶ 正在配置其他配置文件..."
 
 # Git 配置
-case "$PROFILE" in
-    minimal) INSTALL_GIT_CONFIG="N" ;;
-    full|desktop|server) INSTALL_GIT_CONFIG="Y" ;;
-    *)
-        printf "是否安装 Git 配置 (.gitconfig)? (y/N) "
-        if read -t 10 INSTALL_GIT_CONFIG < /dev/tty; then :; else INSTALL_GIT_CONFIG="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 Git 配置 (.gitconfig)? (y/N) "
+if read INSTALL_GIT_CONFIG < /dev/tty; then :; else INSTALL_GIT_CONFIG="N"; echo ""; fi
 
 if [[ "$INSTALL_GIT_CONFIG" =~ ^[Yy]$ ]]; then
     echo "▶ 正在配置 Git 配置..."
@@ -2074,89 +1948,77 @@ if [[ "$INSTALL_GIT_CONFIG" =~ ^[Yy]$ ]]; then
     DEFAULT_GIT_EMAIL="${EXISTING_GIT_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
     DEFAULT_GIT_KEY="${EXISTING_GIT_KEY:-}"
 
-    case "$PROFILE" in
-        minimal)
-            # 最小模式保持默认脱敏信息
-            git config -f "$HOME/.gitconfig" user.name "$DEFAULT_GIT_NAME"
-            git config -f "$HOME/.gitconfig" user.email "$DEFAULT_GIT_EMAIL"
-            git config -f "$HOME/.gitconfig" --unset user.signingkey 2>/dev/null || true
-            git config -f "$HOME/.gitconfig" commit.gpgsign false
-            git config -f "$HOME/.gitconfig" tag.forcesignannotated false
-            ;;
-        *)
-            echo "------------------------------"
-            echo "=== Git 用户与提交信息配置 ==="
-            echo "你可以自定义 Git 用户名、邮箱及 GPG 签名 Key。"
-            echo "若直接回车跳过，将默认使用 GitHub Actions Bot 脱敏信息。"
-            echo ""
+    echo "------------------------------"
+    echo "=== Git 用户与提交信息配置 ==="
+    echo "你可以自定义 Git 用户名、邮箱及 GPG 签名 Key。"
+    echo "若直接回车跳过，将默认使用 GitHub Actions Bot 脱敏信息。"
+    echo ""
 
-            # 1. user.name
-            printf "请输入 Git 用户名 (user.name，默认: %s): " "$DEFAULT_GIT_NAME"
-            GIT_NAME_INPUT=""
-            if read -t 20 GIT_NAME_INPUT < /dev/tty 2>/dev/null; then :; else GIT_NAME_INPUT=""; echo ""; fi
-            GIT_NAME_INPUT=$(echo "$GIT_NAME_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            [[ -z "$GIT_NAME_INPUT" ]] && GIT_NAME_INPUT="$DEFAULT_GIT_NAME"
-            git config -f "$HOME/.gitconfig" user.name "$GIT_NAME_INPUT"
-            echo "✔ Git 用户名已设置为: $GIT_NAME_INPUT"
+    # 1. user.name
+    printf "请输入 Git 用户名 (user.name，默认: %s): " "$DEFAULT_GIT_NAME"
+    GIT_NAME_INPUT=""
+    if read GIT_NAME_INPUT < /dev/tty 2>/dev/null; then :; else GIT_NAME_INPUT=""; echo ""; fi
+    GIT_NAME_INPUT=$(echo "$GIT_NAME_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [[ -z "$GIT_NAME_INPUT" ]] && GIT_NAME_INPUT="$DEFAULT_GIT_NAME"
+    git config -f "$HOME/.gitconfig" user.name "$GIT_NAME_INPUT"
+    echo "✔ Git 用户名已设置为: $GIT_NAME_INPUT"
 
-            # 2. user.email
-            printf "请输入 Git 邮箱 (user.email，默认: %s): " "$DEFAULT_GIT_EMAIL"
-            GIT_EMAIL_INPUT=""
-            if read -t 20 GIT_EMAIL_INPUT < /dev/tty 2>/dev/null; then :; else GIT_EMAIL_INPUT=""; echo ""; fi
-            GIT_EMAIL_INPUT=$(echo "$GIT_EMAIL_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            [[ -z "$GIT_EMAIL_INPUT" ]] && GIT_EMAIL_INPUT="$DEFAULT_GIT_EMAIL"
-            git config -f "$HOME/.gitconfig" user.email "$GIT_EMAIL_INPUT"
-            echo "✔ Git 邮箱已设置为: $GIT_EMAIL_INPUT"
+    # 2. user.email
+    printf "请输入 Git 邮箱 (user.email，默认: %s): " "$DEFAULT_GIT_EMAIL"
+    GIT_EMAIL_INPUT=""
+    if read GIT_EMAIL_INPUT < /dev/tty 2>/dev/null; then :; else GIT_EMAIL_INPUT=""; echo ""; fi
+    GIT_EMAIL_INPUT=$(echo "$GIT_EMAIL_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [[ -z "$GIT_EMAIL_INPUT" ]] && GIT_EMAIL_INPUT="$DEFAULT_GIT_EMAIL"
+    git config -f "$HOME/.gitconfig" user.email "$GIT_EMAIL_INPUT"
+    echo "✔ Git 邮箱已设置为: $GIT_EMAIL_INPUT"
 
-            # 3. user.signingkey
-            if [[ -n "$DEFAULT_GIT_KEY" ]]; then
-                printf "请输入 GPG/SSH 签名 Key (user.signingkey，默认: %s): " "$DEFAULT_GIT_KEY"
+    # 3. user.signingkey
+    if [[ -n "$DEFAULT_GIT_KEY" ]]; then
+        printf "请输入 GPG/SSH 签名 Key (user.signingkey，默认: %s): " "$DEFAULT_GIT_KEY"
+    else
+        printf "请输入 GPG/SSH 签名 Key (user.signingkey，留空则不启用签名): "
+    fi
+    GIT_KEY_INPUT=""
+    if read GIT_KEY_INPUT < /dev/tty 2>/dev/null; then :; else GIT_KEY_INPUT=""; echo ""; fi
+    GIT_KEY_INPUT=$(echo "$GIT_KEY_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [[ -z "$GIT_KEY_INPUT" ]] && GIT_KEY_INPUT="$DEFAULT_GIT_KEY"
+
+    if [[ -n "$GIT_KEY_INPUT" ]]; then
+        git config -f "$HOME/.gitconfig" user.signingkey "$GIT_KEY_INPUT"
+        git config -f "$HOME/.gitconfig" commit.gpgsign true
+        git config -f "$HOME/.gitconfig" tag.forcesignannotated true
+        echo "✔ 已配置签名 Key 并启用提交签名 (commit.gpgsign=true)"
+    else
+        git config -f "$HOME/.gitconfig" --unset user.signingkey 2>/dev/null || true
+        git config -f "$HOME/.gitconfig" commit.gpgsign false
+        git config -f "$HOME/.gitconfig" tag.forcesignannotated false
+        echo "✔ 未配置签名 Key，已关闭提交强制签名 (commit.gpgsign=false)"
+    fi
+
+    # 4. 额外自定义配置项 (可选)
+    printf "是否添加其他自定义 Git 配置项 (例如 core.editor 等)? (y/N) "
+    CUSTOM_GIT_EXTRA="N"
+    if read CUSTOM_GIT_EXTRA < /dev/tty 2>/dev/null; then :; else CUSTOM_GIT_EXTRA="N"; echo ""; fi
+    if [[ "$CUSTOM_GIT_EXTRA" =~ ^[Yy]$ ]]; then
+        while true; do
+            printf "请输入配置键与值 (如 core.editor vim，直接回车结束): "
+            EXTRA_KV=""
+            if read EXTRA_KV < /dev/tty 2>/dev/null; then :; else EXTRA_KV=""; echo ""; fi
+            EXTRA_KV=$(echo "$EXTRA_KV" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ -z "$EXTRA_KV" ]] && break
+            read -r ek ev <<< "$EXTRA_KV"
+            if [[ -n "$ek" && -n "$ev" ]]; then
+                ev="${ev#\"}"
+                ev="${ev%\"}"
+                ev="${ev#\'}"
+                ev="${ev%\'}"
+                git config -f "$HOME/.gitconfig" "$ek" "$ev"
+                echo "✔ 已设置: $ek = $ev"
             else
-                printf "请输入 GPG/SSH 签名 Key (user.signingkey，留空则不启用签名): "
+                echo "⚠ 输入格式不正确，请使用: 配置名 配置值"
             fi
-            GIT_KEY_INPUT=""
-            if read -t 20 GIT_KEY_INPUT < /dev/tty 2>/dev/null; then :; else GIT_KEY_INPUT=""; echo ""; fi
-            GIT_KEY_INPUT=$(echo "$GIT_KEY_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            [[ -z "$GIT_KEY_INPUT" ]] && GIT_KEY_INPUT="$DEFAULT_GIT_KEY"
-
-            if [[ -n "$GIT_KEY_INPUT" ]]; then
-                git config -f "$HOME/.gitconfig" user.signingkey "$GIT_KEY_INPUT"
-                git config -f "$HOME/.gitconfig" commit.gpgsign true
-                git config -f "$HOME/.gitconfig" tag.forcesignannotated true
-                echo "✔ 已配置签名 Key 并启用提交签名 (commit.gpgsign=true)"
-            else
-                git config -f "$HOME/.gitconfig" --unset user.signingkey 2>/dev/null || true
-                git config -f "$HOME/.gitconfig" commit.gpgsign false
-                git config -f "$HOME/.gitconfig" tag.forcesignannotated false
-                echo "✔ 未配置签名 Key，已关闭提交强制签名 (commit.gpgsign=false)"
-            fi
-
-            # 4. 额外自定义配置项 (可选)
-            printf "是否添加其他自定义 Git 配置项 (例如 core.editor 等)? (y/N) "
-            CUSTOM_GIT_EXTRA="N"
-            if read -t 10 CUSTOM_GIT_EXTRA < /dev/tty 2>/dev/null; then :; else CUSTOM_GIT_EXTRA="N"; echo ""; fi
-            if [[ "$CUSTOM_GIT_EXTRA" =~ ^[Yy]$ ]]; then
-                while true; do
-                    printf "请输入配置键与值 (如 core.editor vim，直接回车结束): "
-                    EXTRA_KV=""
-                    if read -t 30 EXTRA_KV < /dev/tty 2>/dev/null; then :; else EXTRA_KV=""; echo ""; fi
-                    EXTRA_KV=$(echo "$EXTRA_KV" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-                    [[ -z "$EXTRA_KV" ]] && break
-                    read -r ek ev <<< "$EXTRA_KV"
-                    if [[ -n "$ek" && -n "$ev" ]]; then
-                        ev="${ev#\"}"
-                        ev="${ev%\"}"
-                        ev="${ev#\'}"
-                        ev="${ev%\'}"
-                        git config -f "$HOME/.gitconfig" "$ek" "$ev"
-                        echo "✔ 已设置: $ek = $ev"
-                    else
-                        echo "⚠ 输入格式不正确，请使用: 配置名 配置值"
-                    fi
-                done
-            fi
-            ;;
-    esac
+        done
+    fi
 
     echo "✔ Git 配置已安装。"
 else
@@ -2164,14 +2026,8 @@ else
 fi
 
 # Ghostty 配置
-case "$PROFILE" in
-    minimal|server) INSTALL_GHOSTTY="N" ;;
-    full|desktop) INSTALL_GHOSTTY="Y" ;;
-    *)
-        printf "是否安装 Ghostty 配置? (y/N) "
-        if read -t 10 INSTALL_GHOSTTY < /dev/tty; then :; else INSTALL_GHOSTTY="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 Ghostty 配置? (y/N) "
+if read INSTALL_GHOSTTY < /dev/tty; then :; else INSTALL_GHOSTTY="N"; echo ""; fi
 if [[ "$INSTALL_GHOSTTY" =~ ^[Yy]$ ]]; then
     echo "▶ 正在下载 Ghostty 配置..."
     mkdir -p "$HOME/.config/ghostty/auto"
@@ -2198,14 +2054,8 @@ else
         echo "  在 PVE LXC 中运行 Docker 需要在 PVE 宿主机开启此容器的 Nesting (嵌套) 与 keyctl。"
     fi
 
-    case "$PROFILE" in
-        minimal) INSTALL_DOCKER="N" ;;
-        full|server) INSTALL_DOCKER="Y" ;;
-        *)
-            printf "未检测到 Docker，是否安装 Docker? (y/N) "
-            if read -t 15 INSTALL_DOCKER < /dev/tty; then :; else INSTALL_DOCKER="N"; echo ""; fi
-            ;;
-    esac
+    printf "未检测到 Docker，是否安装 Docker? (y/N) "
+    if read INSTALL_DOCKER < /dev/tty; then :; else INSTALL_DOCKER="N"; echo ""; fi
 
     if [[ "$INSTALL_DOCKER" =~ ^[Yy]$ ]]; then
         echo "▶ 正在使用官方脚本安装 Docker..."
@@ -2238,7 +2088,7 @@ if [[ "$TARGET_USER" != "root" ]]; then
         echo "✔ 用户 $TARGET_USER 已在 docker 用户组中。"
     else
         printf "是否添加用户 %s 到 docker 用户组 (免 sudo 运行 docker)? (y/N) " "$TARGET_USER"
-        if read -t 15 ADD_DOCKER_GRP < /dev/tty; then :; else ADD_DOCKER_GRP="N"; echo ""; fi
+        if read ADD_DOCKER_GRP < /dev/tty; then :; else ADD_DOCKER_GRP="N"; echo ""; fi
 
         if [[ "$ADD_DOCKER_GRP" =~ ^[Yy]$ ]]; then
             if ! getent group docker > /dev/null 2>&1; then
@@ -2266,15 +2116,9 @@ configure_docker_daemon() {
     echo "=== Docker Daemon 参数与镜像加速配置 ==="
 
     local config_daemon_defaults="N"
-    case "$PROFILE" in
-        minimal) config_daemon_defaults="N" ;;
-        full|server) config_daemon_defaults="Y" ;;
-        *)
-            printf "是否配置 Docker 推荐基础参数 (日志轮转限制 20m/5个、live-restore 进程热重启)? (Y/n) "
-            if read -t 15 config_daemon_defaults < /dev/tty; then :; else config_daemon_defaults="Y"; echo ""; fi
-            [[ -z "$config_daemon_defaults" ]] && config_daemon_defaults="Y"
-            ;;
-    esac
+    printf "是否配置 Docker 推荐基础参数 (日志轮转限制 20m/5个、live-restore 进程热重启)? (Y/n) "
+    if read config_daemon_defaults < /dev/tty; then :; else config_daemon_defaults="Y"; echo ""; fi
+    [[ -z "$config_daemon_defaults" ]] && config_daemon_defaults="Y"
 
     local daemon_modified=false
     local temp_daemon_json
@@ -2328,42 +2172,44 @@ with open('$temp_daemon_json', 'w') as f:
     echo "------------------------------"
     local config_docker_proxy="N"
     printf "是否配置 Docker 镜像加速节点 (registry-mirrors)? (y/N) "
-    if read -t 15 config_docker_proxy < /dev/tty; then :; else config_docker_proxy="N"; echo ""; fi
+    if read config_docker_proxy < /dev/tty; then :; else config_docker_proxy="N"; echo ""; fi
 
     if [[ "$config_docker_proxy" =~ ^[Yy]$ ]]; then
         echo "▶ 请选择 Docker 镜像加速节点："
-        echo "   1) https://docker.m.daocloud.io (DaoCloud 加速，推荐)"
-        echo "   2) https://mirror.baidubce.com (百度云镜像)"
-        echo "   3) https://dockerproxy.com"
-        echo "   4) https://docker.nju.edu.cn (南京大学开源镜像站)"
-        echo "   5) 自定义镜像加速链接"
-        printf "请输入序号 (1-5，默认 1): "
+        echo "   1) https://hub.eallion.com (推荐镜像)"
+        echo "   2) https://docker.m.daocloud.io (DaoCloud 加速)"
+        echo "   3) https://mirror.baidubce.com (百度云镜像)"
+        echo "   4) https://dockerproxy.com"
+        echo "   5) https://docker.nju.edu.cn (南京大学开源镜像站)"
+        echo "   6) 自定义镜像加速链接"
+        printf "请输入序号 (1-6，默认 1): "
 
         local mirror_choice="1"
-        if read -t 20 mirror_choice < /dev/tty 2>/dev/null; then :; else mirror_choice="1"; echo ""; fi
+        if read mirror_choice < /dev/tty 2>/dev/null; then :; else mirror_choice="1"; echo ""; fi
         [[ -z "$mirror_choice" ]] && mirror_choice="1"
 
         local selected_mirror=""
         case "$mirror_choice" in
-            1) selected_mirror="https://docker.m.daocloud.io" ;;
-            2) selected_mirror="https://mirror.baidubce.com" ;;
-            3) selected_mirror="https://dockerproxy.com" ;;
-            4) selected_mirror="https://docker.nju.edu.cn" ;;
-            5)
+            1) selected_mirror="https://hub.eallion.com" ;;
+            2) selected_mirror="https://docker.m.daocloud.io" ;;
+            3) selected_mirror="https://mirror.baidubce.com" ;;
+            4) selected_mirror="https://dockerproxy.com" ;;
+            5) selected_mirror="https://docker.nju.edu.cn" ;;
+            6)
                 printf "请输入自定义镜像加速链接 (例如 https://hub.example.com): "
                 local custom_mirror=""
-                read -t 30 custom_mirror < /dev/tty
+                read custom_mirror < /dev/tty
                 custom_mirror="${custom_mirror%/}"
                 if [[ -n "$custom_mirror" ]]; then
                     selected_mirror="$custom_mirror"
                 else
-                    echo "⚠ 输入为空，使用默认 DaoCloud 镜像加速。"
-                    selected_mirror="https://docker.m.daocloud.io"
+                    echo "⚠ 输入为空，使用默认镜像加速。"
+                    selected_mirror="https://hub.eallion.com"
                 fi
                 ;;
             *)
-                echo "⚠ 无效输入，默认使用 DaoCloud 镜像加速。"
-                selected_mirror="https://docker.m.daocloud.io"
+                echo "⚠ 无效输入，默认使用推荐镜像加速。"
+                selected_mirror="https://hub.eallion.com"
                 ;;
         esac
 
@@ -2405,15 +2251,9 @@ with open('$temp_daemon_json', 'w') as f:
         echo "✔ /etc/docker/daemon.json 写入成功："
         cat "$temp_daemon_json"
 
-        # 如果 Docker 服务正在运行，重新加载/重启
-        if systemctl is-active --quiet docker 2>/dev/null; then
-            echo "▶ 正在重启 Docker 服务以应用新配置..."
-            if $SUDO systemctl daemon-reload && $SUDO systemctl restart docker; then
-                echo "✔ Docker 服务已成功重启并加载新配置。"
-            else
-                echo "⚠ Docker 重启异常，请检查配置参数。"
-            fi
-        fi
+        # 不在配置过程中重启服务，记录待重启状态
+        DOCKER_NEEDS_RESTART=true
+        echo "ℹ Docker 配置已更新（将在脚本结束时提示重启命令以使配置生效）。"
     fi
     rm -f "$temp_daemon_json" 2>/dev/null || true
 }
@@ -2424,24 +2264,14 @@ echo "------------------------------"
 ###
 # SSH 配置（仅适用于 VPS 环境）
 ###
-case "$PROFILE" in
-    minimal) CONFIGURE_SSH="N" ;;
-    server) CONFIGURE_SSH="Y" ;;
-    *)
-        printf "是否配置 SSH 服务 (仅在 VPS 环境推荐配置)? (y/N) "
-        if read -t 10 CONFIGURE_SSH < /dev/tty; then :; else CONFIGURE_SSH="N"; echo ""; fi
-        ;;
-esac
+printf "是否配置 SSH 服务 (仅在 VPS 环境推荐配置)? (y/N) "
+if read CONFIGURE_SSH < /dev/tty; then :; else CONFIGURE_SSH="N"; echo ""; fi
 
 if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
     echo "▶ 开始配置 SSH 服务..."
 
-    # 检查 SSH 服务状态
-    if ! systemctl is-active --quiet ssh && ! systemctl is-active --quiet sshd; then
-        echo "▶ 启用 SSH 服务..."
-        $SUDO systemctl enable ssh 2>/dev/null || $SUDO systemctl enable sshd 2>/dev/null || true
-        $SUDO systemctl start ssh 2>/dev/null || $SUDO systemctl start sshd 2>/dev/null || true
-    fi
+    # 确保 SSH 服务已启用 (不在配置过程中启动或重启)
+    $SUDO systemctl enable ssh 2>/dev/null || $SUDO systemctl enable sshd 2>/dev/null || true
 
     echo "▶ 系统版本: $DISTRO_NAME $DISTRO_VERSION"
 
@@ -2450,13 +2280,13 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
     echo "  1) 输入自定义端口"
     echo "  2) 使用 50000 以上的随机端口"
     printf "请选择 (1/2): "
-    if read -t 30 PORT_CHOICE < /dev/tty; then :; else PORT_CHOICE="2"; echo ""; fi
+    if read PORT_CHOICE < /dev/tty; then :; else PORT_CHOICE="2"; echo ""; fi
 
     case $PORT_CHOICE in
         1)
             tput cnorm 2>/dev/null || true
             printf "请输入 SSH 端口 (22-65535): "
-            read -t 30 SSH_PORT < /dev/tty
+            read SSH_PORT < /dev/tty
             if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [ "$SSH_PORT" -lt 22 ] || [ "$SSH_PORT" -gt 65535 ]; then
                 echo "❌ 无效端口，使用默认端口 22"
                 SSH_PORT=22
@@ -2474,11 +2304,11 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
 
     # 是否禁用 root 直接登录
     printf "是否禁用 root 用户直接 SSH 登录? (y/N) "
-    if read -t 10 DISABLE_ROOT_SSH < /dev/tty; then :; else DISABLE_ROOT_SSH="N"; echo ""; fi
+    if read DISABLE_ROOT_SSH < /dev/tty; then :; else DISABLE_ROOT_SSH="N"; echo ""; fi
 
     # 是否禁止密码登录
     printf "是否禁止密码登录 (推荐使用密钥登录)? (y/N) "
-    if read -t 10 DISABLE_PASSWORD_AUTH < /dev/tty; then :; else DISABLE_PASSWORD_AUTH="N"; echo ""; fi
+    if read DISABLE_PASSWORD_AUTH < /dev/tty; then :; else DISABLE_PASSWORD_AUTH="N"; echo ""; fi
 
     # SSH 公钥配置交互（提供 3 种选择）
     SSH_KEY_CONTENT=""
@@ -2490,7 +2320,7 @@ if [[ "$CONFIGURE_SSH" =~ ^[Yy]$ ]]; then
     echo "  4) 跳过公钥配置"
     tput cnorm 2>/dev/null || true
     printf "请选择 (1/2/3/4，默认 4): "
-    if read -t 30 SSH_KEY_CHOICE < /dev/tty; then :; else SSH_KEY_CHOICE="4"; echo ""; fi
+    if read SSH_KEY_CHOICE < /dev/tty; then :; else SSH_KEY_CHOICE="4"; echo ""; fi
 
     case "$SSH_KEY_CHOICE" in
         1)
@@ -2677,39 +2507,15 @@ EOF
 ListenStream=
 ListenStream=$SSH_PORT
 EOF
-        $SUDO systemctl daemon-reload
-        $SUDO systemctl restart ssh.socket 2>/dev/null || true
     fi
 
-    # 重启 SSH 服务
-    echo "▶ 重启 SSH 服务..."
-    if systemctl list-unit-files 2>/dev/null | grep -q "^ssh\.service"; then
-        $SUDO systemctl restart ssh 2>/dev/null || true
-    elif systemctl list-unit-files 2>/dev/null | grep -q "^sshd\.service"; then
-        $SUDO systemctl restart sshd 2>/dev/null || true
-    fi
-
-    # 验证端口监听
-    echo "▶ 检查 SSH 服务端口监听状态 (端口: $SSH_PORT)..."
-    sleep 1
-    PORT_ACTIVE=false
-    if command -v ss &>/dev/null; then
-        if ss -tln | grep -q ":$SSH_PORT "; then PORT_ACTIVE=true; fi
-    fi
-    if [[ "$PORT_ACTIVE" == false ]] && timeout 3 bash -c "</dev/tcp/127.0.0.1/$SSH_PORT" 2>/dev/null; then
-        PORT_ACTIVE=true
-    fi
-
-    if [[ "$PORT_ACTIVE" == true ]]; then
-        echo "✔ SSH 端口 $SSH_PORT 已正常处于监听状态！"
-    else
-        echo "⚠ 提示: 端口 $SSH_PORT 尚未检测到连接响应（可能受防火墙或异步启动影响）。"
-        echo "   建议在保持当前会话的同时，新开窗口测试连接。"
-    fi
+    # 不在配置过程中重启 SSH 服务，记录待重启状态
+    SSH_NEEDS_RESTART=true
+    SSH_RESTART_PORT="$SSH_PORT"
 
     # 显示配置结果
     echo "------------------------------"
-    echo "✅ SSH 配置完成！"
+    echo "✔ SSH 配置文件已写入完成！"
     echo "🔧 配置详情:"
     echo "   • SSH 端口: $SSH_PORT"
     if [[ "$DISABLE_ROOT_SSH" =~ ^[Yy]$ ]]; then
@@ -2723,9 +2529,8 @@ EOF
         echo "   • 密码登录: 已启用"
     fi
     echo ""
-    echo "⚠️  重要提醒:"
-    echo "   • 请务必在新终端测试新配置能否正常连接后再关闭当前会话！"
-    echo "   • 测试命令: ssh -p $SSH_PORT $(whoami)@<服务器IP>"
+    echo "ℹ 提示: 脚本在配置过程中未重启 SSH 服务以保证当前会话安全。"
+    echo "   稍后脚本结束时将提供重启命令；请在重启后新开窗口验证连接。"
     echo "------------------------------"
 
 else
@@ -2740,14 +2545,8 @@ echo "------------------------------"
 echo "▶ 安全工具配置..."
 
 # UFW 防火墙配置
-case "$PROFILE" in
-    minimal) INSTALL_UFW="N" ;;
-    server) INSTALL_UFW="Y" ;;
-    *)
-        printf "是否安装并配置 UFW 防火墙? (y/N) "
-        if read -t 10 INSTALL_UFW < /dev/tty; then :; else INSTALL_UFW="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装并配置 UFW 防火墙? (y/N) "
+if read INSTALL_UFW < /dev/tty; then :; else INSTALL_UFW="N"; echo ""; fi
 
 if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
     # PVE LXC 环境检测与提示
@@ -2758,7 +2557,7 @@ if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
             echo "  在非特权 LXC 容器中强制启用 UFW 可能会导致启动失败或网络中断。"
             echo "  推荐直接在 PVE 宿主机或 PVE 管理界面的防火墙规则中进行防护。"
             printf "是否仍要尝试在容器内配置 UFW? (y/N) "
-            if read -t 10 FORCE_UFW < /dev/tty; then :; else FORCE_UFW="N"; echo ""; fi
+            if read FORCE_UFW < /dev/tty; then :; else FORCE_UFW="N"; echo ""; fi
             if ! [[ "$FORCE_UFW" =~ ^[Yy]$ ]]; then
                 INSTALL_UFW="N"
                 echo "⏭ 已针对 PVE LXC 环境安全跳过 UFW。"
@@ -2810,12 +2609,12 @@ if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]]; then
     # 询问是否添加自定义端口
     printf "是否添加其他自定义开放端口 (例如 8080, 3000-4000/udp)? (y/N) "
     ADD_CUSTOM_PORTS="N"
-    if read -t 10 ADD_CUSTOM_PORTS < /dev/tty 2>/dev/null; then :; else ADD_CUSTOM_PORTS="N"; echo ""; fi
+    if read ADD_CUSTOM_PORTS < /dev/tty 2>/dev/null; then :; else ADD_CUSTOM_PORTS="N"; echo ""; fi
     if [[ "$ADD_CUSTOM_PORTS" =~ ^[Yy]$ ]]; then
         while true; do
             printf "请输入要放行的端口或服务 (如 8080 或 8080/tcp，直接回车结束): "
             CUSTOM_PORT_INPUT=""
-            if read -t 30 CUSTOM_PORT_INPUT < /dev/tty 2>/dev/null; then :; else CUSTOM_PORT_INPUT=""; echo ""; fi
+            if read CUSTOM_PORT_INPUT < /dev/tty 2>/dev/null; then :; else CUSTOM_PORT_INPUT=""; echo ""; fi
             CUSTOM_PORT_INPUT=$(echo "$CUSTOM_PORT_INPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
             [[ -z "$CUSTOM_PORT_INPUT" ]] && break
             for cp in $CUSTOM_PORT_INPUT; do
@@ -2835,14 +2634,8 @@ fi
 echo "------------------------------"
 
 # UFW Docker 配置
-case "$PROFILE" in
-    minimal|desktop) INSTALL_UFW_DOCKER="N" ;;
-    server) INSTALL_UFW_DOCKER="Y" ;;
-    *)
-        printf "是否安装 UFW Docker 集成 (ufw-docker)? (y/N) "
-        if read -t 10 INSTALL_UFW_DOCKER < /dev/tty; then :; else INSTALL_UFW_DOCKER="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 UFW Docker 集成 (ufw-docker)? (y/N) "
+if read INSTALL_UFW_DOCKER < /dev/tty; then :; else INSTALL_UFW_DOCKER="N"; echo ""; fi
 
 if [[ "$INSTALL_UFW_DOCKER" =~ ^[Yy]$ ]]; then
     if ! command -v docker &> /dev/null; then
@@ -2881,10 +2674,8 @@ COMMIT
 EOF
         fi
         
-        # 重新加载 UFW
-        if [[ "$INSTALL_UFW" =~ ^[Yy]$ ]] || command -v ufw &> /dev/null; then
-            $SUDO ufw reload 2>/dev/null || true
-        fi
+        # 记录待重载状态 (不在配置过程中重载 UFW)
+        UFW_NEEDS_RELOAD=true
         
         echo "✔ UFW Docker 已安装"
         echo "   • 用法: ufw-docker allow <service_name>"
@@ -2896,14 +2687,8 @@ fi
 echo "------------------------------"
 
 # Fail2ban 配置
-case "$PROFILE" in
-    minimal|desktop) INSTALL_FAIL2BAN="N" ;;
-    server) INSTALL_FAIL2BAN="Y" ;;
-    *)
-        printf "是否安装 Fail2ban (SSH 暴力破解防护)? (y/N) "
-        if read -t 10 INSTALL_FAIL2BAN < /dev/tty; then :; else INSTALL_FAIL2BAN="N"; echo ""; fi
-        ;;
-esac
+printf "是否安装 Fail2ban (SSH 暴力破解防护)? (y/N) "
+if read INSTALL_FAIL2BAN < /dev/tty; then :; else INSTALL_FAIL2BAN="N"; echo ""; fi
 
 if [[ "$INSTALL_FAIL2BAN" =~ ^[Yy]$ ]]; then
     # PVE LXC 环境提示
@@ -2933,9 +2718,16 @@ if [[ "$INSTALL_FAIL2BAN" =~ ^[Yy]$ ]]; then
 
     FAIL2BAN_PORT="${SSH_PORT:-ssh}"
 
-    # 创建本地配置文件
+    # 配置 fail2ban.local 设置默认日志等级为 INFO
+    cat << EOF | $SUDO tee /etc/fail2ban/fail2ban.local > /dev/null
+[DEFAULT]
+loglevel = INFO
+EOF
+
+    # 创建本地 jail 配置文件
     cat << EOF | $SUDO tee /etc/fail2ban/jail.local > /dev/null
 [DEFAULT]
+loglevel = INFO
 # 禁用时间（秒）: 30 分钟
 bantime = 1800
 # 检查间隔（秒）
@@ -2961,11 +2753,11 @@ findtime = 600
 action = %(action_)s
 EOF
 
-    # 启动 Fail2ban
+    # 启用 Fail2ban (不在配置过程中重启)
     $SUDO systemctl enable fail2ban 2>/dev/null || true
-    $SUDO systemctl restart fail2ban 2>/dev/null || true
+    FAIL2BAN_NEEDS_RESTART=true
     
-    echo "✔ Fail2ban 已配置完成"
+    echo "✔ Fail2ban 已配置完成 (日志等级: INFO)"
     echo "   • 监控端口: $FAIL2BAN_PORT"
     echo "   • 禁用时间: 30 分钟"
     echo "   • 最大失败次数: 5 次 (30 分钟内)"
@@ -3069,6 +2861,41 @@ if [[ "$ADD_DOCKER_GRP" =~ ^[Yy]$ ]]; then
     echo ""
     echo "提示：你刚刚将用户添加到了 docker 用户组，若要免 sudo 运行 docker，需注销重登或运行："
     echo "  newgrp docker"
+fi
+
+# 服务生效与重启命令提示
+RESTART_COMMANDS=()
+if [[ "$DOCKER_NEEDS_RESTART" == true ]]; then
+    RESTART_COMMANDS+=("sudo systemctl daemon-reload && sudo systemctl restart docker")
+fi
+if [[ "$SSH_NEEDS_RESTART" == true ]]; then
+    if systemctl is-active --quiet ssh.socket 2>/dev/null || systemctl is-enabled --quiet ssh.socket 2>/dev/null; then
+        RESTART_COMMANDS+=("sudo systemctl daemon-reload && sudo systemctl restart ssh.socket")
+    else
+        RESTART_COMMANDS+=("sudo systemctl restart ssh 2>/dev/null || sudo systemctl restart sshd")
+    fi
+fi
+if [[ "$UFW_NEEDS_RELOAD" == true ]]; then
+    RESTART_COMMANDS+=("sudo ufw reload")
+fi
+if [[ "$FAIL2BAN_NEEDS_RESTART" == true ]]; then
+    RESTART_COMMANDS+=("sudo systemctl restart fail2ban")
+fi
+
+if [[ ${#RESTART_COMMANDS[@]} -gt 0 ]]; then
+    echo ""
+    echo "============================================================"
+    echo "服务生效提示 (为保证安全，脚本执行期间未重启以下服务):"
+    echo "请在适当时机运行以下命令使配置生效："
+    for r_cmd in "${RESTART_COMMANDS[@]}"; do
+        echo "  $r_cmd"
+    done
+    if [[ "$SSH_NEEDS_RESTART" == true ]]; then
+        echo ""
+        echo "注意: 重启 SSH 服务后，请务必新开终端测试新端口/密钥能否连接："
+        echo "  ssh -p ${SSH_RESTART_PORT:-22} $(whoami)@<服务器IP>"
+    fi
+    echo "============================================================"
 fi
 
 echo ""
