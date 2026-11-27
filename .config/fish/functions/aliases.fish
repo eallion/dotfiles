@@ -150,7 +150,6 @@ abbr --add dcip docker inspect --format="{{.NetworkSettings.IPAddress}}"
 abbr --add dlast "docker exec -it (docker ps -lq) bash"
 abbr --add dlogs docker logs -f
 abbr --add dlf docker logs -f
-abbr --add docker-compose docker compose
 
 # Command wrappers
 
@@ -176,6 +175,10 @@ end
 
 function cp
     command cp -iv $argv
+end
+
+function docker-compose --wraps 'docker compose'
+    docker compose $argv
 end
 
 function git_log_pretty
